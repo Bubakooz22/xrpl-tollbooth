@@ -91,3 +91,78 @@ Two-party model: resource server (us) + facilitator (t54).
 - docs.t54.ai/docs/xrpl/x402-facilitator + xrpl-x402.t54.ai (XRPL facilitator)
 - Avalanche Builder Hub, Faremeter, PayAI, Stripe x402 docs (cross-checks)
 - PyPI: x402-xrpl, xrpl-x402-client ; npm: x402, x402-express, @x402/*
+
+---
+
+## SDK Source Review (Section 2) — official Coinbase x402 packages
+
+Source: `npm pack @x402/core@2.21.0` and `@x402/evm@2.21.0` (Apache-2.0), inspected
+`.d.mts` type declarations + compiled `.mjs`. No local SDK is installed in this
+project (only `xrpl@^5`), so review was against upstream published sources.
+
+### Package landscape
+- `x402@1.2.0` (top-level), `@x402/core@2.21.0`, `@x402/extensions`, `@x402/evm`,
+  `@x402/svm` (Solana), `@coinbase/x402@2.1.0`.
+- IMPORTANT: there is **no `@x402/xrpl` package**. XRPL is NOT in the official
+  Coinbase SDK. XRPL x402 support is provided by the **t54 facilitator service**
+  (see t54-live-probe.md), not by a client-side chain adapter.
+- `@x402/core` is chain-agnostic (only dep: `zod`). Chain adapters plug in via
+  `register(network, server)`.
+
+### Protocol wire types (@x402/core, authoritative)
+- `Network` = template literal `` `${string}:${string}` `` (CAIP-2 style, e.g.
+  `eip155:8453`; XRPL would be e.g. `xrpl:testnet` / a t54-defined id).
+- `PaymentRequirements` = { scheme, network, asset, amount, payTo,
+  maxTimeoutSeconds, extra: Record<string,unknown> }.
+- `PaymentRequired` (402 body) = { x402Version, error?, resource: ResourceInfo,
+  accepts: PaymentRequirements[], extensions? }.
+- `PaymentPayload` (client->server) = { x402Version, resource?, accepted:
+  PaymentRequirements, payload: Record<string,unknown>, extensions? }.
+  -> the chain-specific signed authorization/tx blob goes in `payload`.
+- `VerifyRequest`  = { x402Version, paymentPayload, paymentRequirements }.
+- `VerifyResponse` = { isValid, invalidReason?, invalidMessage?, payer?,
+  extensions?, extra? }.
+- `SettleRequest`  = { x402Version, paymentPayload, paymentRequirements }.
+- `SettleResponse` = { success, errorReason?, errorMessage?, payer?,
+  transaction (string = on-chain tx hash), network, amount?, extensions?, extra? }.
+- `SupportedResponse` = { kinds: {x402Version, scheme, network, extra?}[],
+  extensions: string[], signers: Record<string,string[]> }.
+
+### Facilitator interface (maps 1:1 to t54 probed endpoints)
+- `verify(paymentPayload, paymentRequirements): Promise<VerifyResponse>`  -> /verify
+- `settle(paymentPayload, paymentRequirements): Promise<SettleResponse>`  -> /settle
+- `getSupported(): Promise<SupportedResponse>`                            -> /supported
+
+### AMBIGUITY RESOLUTIONS
+1. HTTP header names (was: X-PAYMENT vs PAYMENT-SIGNATURE?)
+   Confirmed both eras coexist in v2.21 core:
+   - 402 challenge  header: `PAYMENT-REQUIRED`  (base64 PaymentRequired)
+   - client payment header: `PAYMENT-SIGNATURE` (base64 PaymentPayload)  [v2]
+   - success receipt header:`PAYMENT-RESPONSE`  (base64 SettleResponse)  [v2]
+   - legacy/v1 equivalents: `X-PAYMENT` / `X-PAYMENT-RESPONSE`
+   - lowercase variants also read: `payment-signature`, `payment-verified`,
+     `payment-error`.
+   Server read logic: getHeader("payment-signature") || getHeader("PAYMENT-SIGNATURE").
+   Client read logic: getHeader("PAYMENT-REQUIRED"); getHeader("X-PAYMENT-RESPONSE").
+   base64 codec fns: encode/decodePaymentRequiredHeader, *SignatureHeader,
+   *ResponseHeader (all base64 JSON).
+
+2. Who submits the on-chain transaction? (was: server or facilitator?)
+   The FACILITATOR submits. `SettleResponse.transaction` is the returned tx hash,
+   and EVM adapter states signature "pre-verification ... is deferred to on-chain
+   simulation or settle." Client signs; facilitator broadcasts on settle().
+   -> Our tollbooth (resource server) should: return 402 w/ PaymentRequired,
+      receive PAYMENT-SIGNATURE, call facilitator /verify then /settle, and
+      return PAYMENT-RESPONSE with the tx hash. We do NOT broadcast ourselves.
+
+3. x402Version / scheme
+   - core schema accepts `x402Version` literal 1 and 2 (both supported).
+   - scheme is a free string; EVM uses `exact` (and `upto` for batch). XRPL scheme
+     name is defined by t54 /supported (query live before hardcoding).
+   - `extra` on PaymentRequirements carries scheme config (e.g. asset decimals,
+     default 6 fallback).
+
+### Net implication for the refactor (NOT yet applied)
+- Build on `xrpl@5` + raw HTTP to t54 facilitator; no chain adapter pkg needed.
+- Query t54 /supported at startup to get exact {x402Version, scheme, network}
+  and the signer/asset requirements before hardcoding PaymentRequirements.
