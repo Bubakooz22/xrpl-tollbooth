@@ -5,3 +5,4 @@ node_modules/
 
 # temp/scratch files
 .tmp_*
+!.env.example
