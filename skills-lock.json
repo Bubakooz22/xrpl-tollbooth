@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "skills": {
+    "xrpl-agent-wallet": {
+      "source": "XRPLF/xrpl-dev-portal",
+      "ref": "master",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/xrpl-skills/xrpl-agent-wallet/SKILL.md",
+      "computedHash": "b7f1105a0e32afb0a09fbe10ad6ca3ec5384fb6179abad7500630858597d4513"
+    },
+    "xrpl-payments": {
+      "source": "XRPLF/xrpl-dev-portal",
+      "ref": "master",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/xrpl-skills/xrpl-payments/SKILL.md",
+      "computedHash": "f455f1ccd8f5dda5b4a9a014ff253f3eb75f04c25c43b081553ce1ff3631e6ca"
+    }
+  }
+}
