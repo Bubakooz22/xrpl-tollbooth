@@ -20,6 +20,15 @@ const FACILITATOR_URL = process.env.FACILITATOR_URL.replace(/\/+$/, "");
 const PORT = Number(process.env.PORT);
 const SOURCE_TAG = Number(process.env.TOLL_SOURCE_TAG ?? 804681468);
 
+// --- RLUSD (Ripple USD) support -------------------------------------------------
+// Testnet RLUSD issuer per Ripple docs (docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl)
+// and confirmed via t54's XRPL x402 facilitator scheme docs (xrpl-x402.t54.ai/docs/xrpl-scheme).
+const RLUSD_ISSUER = process.env.RLUSD_ISSUER || 'rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV';
+// "RLUSD" ASCII right-padded to a 40-hex-char currency code (XRPL non-standard currency code format).
+const RLUSD_CURRENCY_HEX = '524C555344000000000000000000000000000000';
+// Price for the RLUSD-priced accept entry, as a decimal string (IOU amounts are decimal, not drops).
+const RLUSD_PRICE = process.env.TOLL_PRICE_RLUSD || '0.002';
+
 function log(fields) {
   const { method, path, status, payment_status, extra } = fields;
   const parts = [
@@ -149,12 +158,13 @@ async function initFacilitator() {
 // Payment requirements builder
 // ---------------------------------------------------------------------------
 
-function buildPaymentRequirements(req, { invoiceId } = {}) {
+function buildPaymentRequirements(req, { invoiceId, asset, amount, issuer } = {}) {
+  const isIou = asset !== undefined && asset !== "XRP";
   return {
     scheme: FACILITATOR.scheme,
     network: FACILITATOR.network,
-    amount: String(TOLL_PRICE_DROPS),
-    asset: "XRP",
+    amount: amount !== undefined ? String(amount) : String(TOLL_PRICE_DROPS),
+    asset: asset !== undefined ? asset : "XRP",
     payTo: TOLL_DESTINATION,
     resource: { url: `http://${req.headers.host}${req.url}` },
     maxTimeoutSeconds: 300,
@@ -162,6 +172,7 @@ function buildPaymentRequirements(req, { invoiceId } = {}) {
     extra: {
       sourceTag: SOURCE_TAG,
       areFeesSponsored: false,
+      ...(isIou ? { issuer: issuer !== undefined ? issuer : RLUSD_ISSUER } : {}),
       ...(invoiceId !== undefined ? { invoiceId } : {}),
     },
   };
@@ -196,7 +207,15 @@ async function requirePayment(req, res) {
     const paymentRequired = {
       x402Version: 2,
       resource: { url: `http://${req.headers.host}${req.url}` },
-      accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
+      accepts: [
+      buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() }),
+      buildPaymentRequirements(req, {
+        invoiceId: crypto.randomUUID(),
+        asset: RLUSD_CURRENCY_HEX,
+        amount: RLUSD_PRICE,
+        issuer: RLUSD_ISSUER,
+      }),
+    ],
     };
     const encoded = b64encode(paymentRequired);
     res.writeHead(402, {
@@ -323,7 +342,15 @@ async function handleHealth(req, res) {
 async function handleDiscovery(req, res) {
   const sample = {
     x402Version: 2,
-    accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
+    accepts: [
+      buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() }),
+      buildPaymentRequirements(req, {
+        invoiceId: crypto.randomUUID(),
+        asset: RLUSD_CURRENCY_HEX,
+        amount: RLUSD_PRICE,
+        issuer: RLUSD_ISSUER,
+      }),
+    ],
   };
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify(sample));
