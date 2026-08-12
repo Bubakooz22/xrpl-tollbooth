@@ -1,0 +1,70 @@
+import { Wallet } from "xrpl";
+import { x402Client } from "@x402/core/client";
+import { ExactXrplScheme } from "@x402/xrpl/exact/client";
+import { createXrplWalletSigner } from "@x402/xrpl";
+import { wrapFetchWithPayment } from "@x402/fetch";
+
+const seed = process.env.PAYER_SEED;
+const url = (process.env.TOLLBOOTH_URL || "http://localhost:8787") + (process.env.TARGET_PATH || "/wallet-risk");
+const body = process.env.REQUEST_BODY || '{"address":"rTest"}';
+
+if (!seed) {
+  console.error("PAYER_SEED missing");
+  process.exit(1);
+}
+
+// Step 1: unpaid probe - confirm 402 comes back
+const probe = await fetch(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body,
+});
+console.log(`unpaid probe: status=${probe.status}`);
+if (probe.status !== 402) {
+  console.warn("expected 402, got", probe.status);
+  const probeText = await probe.text();
+  console.warn("probe body:", probeText);
+}
+
+// Step 2: build the SDK-based x402 client with the XRPL exact scheme registered
+const wallet = Wallet.fromSeed(seed);
+console.log(`payer address (from seed): ${wallet.classicAddress}`);
+
+const signer = createXrplWalletSigner(wallet);
+const scheme = new ExactXrplScheme(signer);
+
+const client = new x402Client();
+client.register("xrpl:1", scheme);
+
+const paidFetch = wrapFetchWithPayment(fetch, client);
+
+// Step 3: make the paid request
+const res = await paidFetch(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body,
+});
+
+console.log(`paid response: status=${res.status}`);
+const respText = await res.text();
+console.log("body:", respText);
+
+// Step 4: look for PAYMENT-RESPONSE header carrying tx hash
+const paymentResp =
+  res.headers.get("payment-response") || res.headers.get("PAYMENT-RESPONSE");
+
+if (paymentResp) {
+  const decoded = JSON.parse(Buffer.from(paymentResp, "base64").toString("utf8"));
+  console.log("PAYMENT-RESPONSE:", JSON.stringify(decoded, null, 2));
+  const txHash =
+    decoded.transaction || decoded.txHash || decoded.hash || decoded?.payload?.transaction;
+  if (txHash) {
+    console.log("PAID REQUEST SUCCEEDED");
+    console.log(`tx=${txHash}`);
+    console.log(`explorer=https://testnet.xrpl.org/transactions/${txHash}`);
+  } else {
+    console.log("PAYMENT-RESPONSE present but no recognizable tx hash field");
+  }
+} else {
+  console.log("No PAYMENT-RESPONSE header found on final response");
+}

@@ -18,7 +18,6 @@ const TOLL_DESTINATION = process.env.TOLL_DESTINATION;
 const TOLL_PRICE_DROPS = process.env.TOLL_PRICE_DROPS;
 const FACILITATOR_URL = process.env.FACILITATOR_URL.replace(/\/+$/, "");
 const PORT = Number(process.env.PORT);
-const SOURCE_TAG = Number(process.env.TOLL_SOURCE_TAG ?? 804681468);
 
 function log(fields) {
   const { method, path, status, payment_status, extra } = fields;
@@ -153,32 +152,13 @@ function buildPaymentRequirements(req, { invoiceId } = {}) {
   return {
     scheme: FACILITATOR.scheme,
     network: FACILITATOR.network,
-    amount: String(TOLL_PRICE_DROPS),
+    maxAmountRequired: String(TOLL_PRICE_DROPS),
     asset: "XRP",
     payTo: TOLL_DESTINATION,
-    resource: { url: `http://${req.headers.host}${req.url}` },
+    resource: `${req.headers.host}${req.url}`,
     maxTimeoutSeconds: 300,
     facilitatorUrl: FACILITATOR_URL,
-    extra: {
-      sourceTag: SOURCE_TAG,
-      areFeesSponsored: false,
-      ...(invoiceId !== undefined ? { invoiceId } : {}),
-    },
-  };
-}
-
-// Build the paymentRequirements shape expected by the facilitator /verify and
-// /settle endpoints. Mirrors the `accepted` object the payer echoes back:
-// { scheme, network, asset, payTo, amount, maxTimeoutSeconds, extra }
-function buildFacilitatorPaymentRequirements(accepted) {
-  return {
-    scheme: accepted.scheme,
-    network: accepted.network,
-    asset: accepted.asset ?? "XRP",
-    payTo: accepted.payTo,
-    amount: accepted.amount,
-    maxTimeoutSeconds: accepted.maxTimeoutSeconds,
-    extra: accepted.extra,
+    ...(invoiceId !== undefined ? { invoiceId } : {}),
   };
 }
 
@@ -195,7 +175,6 @@ async function requirePayment(req, res) {
   if (!sigHeader) {
     const paymentRequired = {
       x402Version: 2,
-      resource: { url: `http://${req.headers.host}${req.url}` },
       accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
     };
     const encoded = b64encode(paymentRequired);
@@ -208,9 +187,9 @@ async function requirePayment(req, res) {
     return false;
   }
 
-  let decoded;
+  let paymentPayload;
   try {
-    decoded = b64decode(sigHeader);
+    paymentPayload = b64decode(sigHeader);
   } catch (err) {
     res.writeHead(402, {
       "Content-Type": "application/json",
@@ -221,37 +200,17 @@ async function requirePayment(req, res) {
     return false;
   }
 
-  const accepted = decoded?.accepted;
-  if (!accepted || !decoded?.payload?.signedTxBlob) {
-    res.writeHead(402, {
-      "Content-Type": "application/json",
-      "PAYMENT-ERROR": b64encode("malformed_payment_signature"),
-    });
-    res.end(JSON.stringify({ error: "malformed_payment_signature", code: 402 }));
-    log({ method: req.method, path: req.url, status: 402, payment_status: "error", extra: "missing_accepted_or_signedTxBlob" });
-    return false;
-  }
-
-  const paymentPayload = decoded;
-  const paymentRequirements = buildFacilitatorPaymentRequirements(accepted);
+  const paymentRequirements = buildPaymentRequirements(req);
 
   let verifyJson;
   try {
-    const verifyBody = { paymentPayload, paymentRequirements, x402Version: 2 };
-    console.log("[verify-request] body:", JSON.stringify(verifyBody));
     const verifyRes = await fetch(`${FACILITATOR_URL}/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(verifyBody),
+      body: JSON.stringify({ paymentPayload, paymentRequirements, x402Version: 2 }),
     });
     verifyJson = await verifyRes.json().catch(() => ({}));
     if (!verifyRes.ok || verifyJson?.isValid === false || verifyJson?.valid === false) {
-      console.error(
-        "[verify-failed] status:",
-        verifyRes.status,
-        "body:",
-        JSON.stringify(verifyJson)
-      );
       const reason = verifyJson?.invalidReason ?? verifyJson?.error ?? "verify_failed";
       res.writeHead(402, {
         "Content-Type": "application/json",
@@ -280,12 +239,6 @@ async function requirePayment(req, res) {
     });
     settleJson = await settleRes.json().catch(() => ({}));
     if (!settleRes.ok || settleJson?.success === false) {
-      console.error(
-        "[settle-failed] status:",
-        settleRes.status,
-        "body:",
-        JSON.stringify(settleJson)
-      );
       const reason = settleJson?.error ?? "settle_failed";
       res.writeHead(402, {
         "Content-Type": "application/json",

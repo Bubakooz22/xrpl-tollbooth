@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "x402-xrpl": "^0.3.1",
     "xrpl": "^5.0.0"
   },
   "type": "module"

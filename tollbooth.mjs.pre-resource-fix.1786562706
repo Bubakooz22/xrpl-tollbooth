@@ -156,7 +156,7 @@ function buildPaymentRequirements(req, { invoiceId } = {}) {
     amount: String(TOLL_PRICE_DROPS),
     asset: "XRP",
     payTo: TOLL_DESTINATION,
-    resource: { url: `http://${req.headers.host}${req.url}` },
+    resource: `${req.headers.host}${req.url}`,
     maxTimeoutSeconds: 300,
     facilitatorUrl: FACILITATOR_URL,
     extra: {
@@ -195,7 +195,6 @@ async function requirePayment(req, res) {
   if (!sigHeader) {
     const paymentRequired = {
       x402Version: 2,
-      resource: { url: `http://${req.headers.host}${req.url}` },
       accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
     };
     const encoded = b64encode(paymentRequired);
