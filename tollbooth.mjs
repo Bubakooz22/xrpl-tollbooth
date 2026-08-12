@@ -1,5 +1,6 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import { scoreWallet } from './lib/wallet-risk.mjs';
 
 // ---------------------------------------------------------------------------
 // x402 v2 compliant tollbooth merchant server.
@@ -369,20 +370,37 @@ async function handleWalletRisk(req, res) {
   }
 
   const receipt = res.paymentReceipt;
-  const responseBody = {
-    chain: body.chain,
-    address: body.address,
-    score: 42,
-    reason_codes: ["stub"],
-    human: "MVP stub, real logic in Phase 1",
-  };
+  const addr = body.address;
 
-  res.writeHead(200, {
-    "Content-Type": "application/json",
-    "PAYMENT-RESPONSE": b64encode(receipt),
-  });
+  if (!addr) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "missing_address", message: 'provide {"address":"..."} in request body' }));
+    log({ method: req.method, path: req.url, status: 400, payment_status: "settled" });
+    return;
+  }
+
+  let responseBody;
+  let statusCode;
+  try {
+    const result = await scoreWallet(addr);
+    if (result && result.error) {
+      statusCode = 400;
+      responseBody = result;
+    } else {
+      statusCode = 200;
+      responseBody = result;
+    }
+  } catch (e) {
+    console.error('[wallet-risk] handler error:', e);
+    statusCode = 500;
+    responseBody = { error: "internal_error", message: e.message };
+  }
+
+  const headers = { "Content-Type": "application/json" };
+  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  res.writeHead(statusCode, headers);
   res.end(JSON.stringify(responseBody));
-  log({ method: req.method, path: req.url, status: 200, payment_status: "settled" });
+  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
 }
 
 async function handleNotFound(req, res) {
