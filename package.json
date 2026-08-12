@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node --env-file=.env tollbooth.mjs",
-    "pay": "node --env-file=.env send-payment.mjs"
+    "pay": "node --env-file=.env send-payment.mjs",
+    "test:health": "curl -s http://localhost:8787/health | jq ."
   },
   "keywords": [],
   "author": "",

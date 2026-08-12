@@ -1,107 +1,363 @@
 import http from "node:http";
 import crypto from "node:crypto";
-import { Client, dropsToXrp } from "xrpl";
 
-// Payment-gated "tollbooth": clients pay XRP to a destination with a unique
-// DestinationTag, then redeem that tag for a short-lived access token once the
-// payment is validated on the XRPL testnet.
-const TESTNET_URL = "wss://s.altnet.rippletest.net:51233";
-const PORT = Number(process.env.PORT ?? 8787);
-const TOLL_DESTINATION = process.env.TOLL_DESTINATION; // r-address that collects tolls
-const TOLL_PRICE_XRP = Number(process.env.TOLL_PRICE_XRP ?? 20);
+// ---------------------------------------------------------------------------
+// x402 v2 compliant tollbooth merchant server.
+// Node built-ins only. No express/fastify. Async/await throughout.
+// ---------------------------------------------------------------------------
 
-if (!TOLL_DESTINATION) throw new Error("TOLL_DESTINATION not set");
-
-// In-memory challenge + token stores (swap for a DB in production).
-const challenges = new Map(); // tag -> { priceXrp, createdAt, paid }
-const tokens = new Map();     // token -> expiresAt
-
-function newTag() {
-  // XRPL DestinationTag is a uint32.
-  return crypto.randomInt(1, 0xffffffff);
+const REQUIRED_ENV = ["TOLL_DESTINATION", "TOLL_PRICE_DROPS", "FACILITATOR_URL", "PORT"];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`[startup] FATAL: missing required env var ${key}`);
+    process.exit(1);
+  }
 }
 
-async function findPayment(client, destinationTag) {
-  const { result } = await client.request({
-    command: "account_tx",
-    account: TOLL_DESTINATION,
-    ledger_index_min: -1,
-    ledger_index_max: -1,
-    limit: 50,
+const TOLL_DESTINATION = process.env.TOLL_DESTINATION;
+const TOLL_PRICE_DROPS = process.env.TOLL_PRICE_DROPS;
+const FACILITATOR_URL = process.env.FACILITATOR_URL.replace(/\/+$/, "");
+const PORT = Number(process.env.PORT);
+
+function log(fields) {
+  const { method, path, status, payment_status, extra } = fields;
+  const parts = [
+    `method=${method ?? "-"}`,
+    `path=${path ?? "-"}`,
+    `status=${status ?? "-"}`,
+    `payment_status=${payment_status ?? "-"}`,
+  ];
+  if (extra) parts.push(extra);
+  console.log(`[req] ${parts.join(" ")}`);
+}
+
+function b64encode(obj) {
+  return Buffer.from(JSON.stringify(obj), "utf8").toString("base64");
+}
+
+function b64decode(str) {
+  return JSON.parse(Buffer.from(str, "base64").toString("utf8"));
+}
+
+function getHeaderCI(req, name) {
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return undefined;
+}
+
+async function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk) => {
+      data += chunk;
+      if (data.length > 1_000_000) {
+        reject(new Error("body_too_large"));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (!data) return resolve({});
+      try {
+        resolve(JSON.parse(data));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
   });
-  for (const entry of result.transactions) {
-    const tx = entry.tx ?? entry.tx_json ?? {};
-    const meta = entry.meta;
-    if (tx.TransactionType !== "Payment") continue;
-    if (tx.Destination !== TOLL_DESTINATION) continue;
-    if (tx.DestinationTag !== destinationTag) continue;
-    if (!entry.validated) continue;
-    const delivered = meta?.delivered_amount ?? meta?.DeliveredAmount ?? tx.Amount;
-    if (typeof delivered !== "string") continue; // only care about XRP (drops)
-    const paidXrp = Number(dropsToXrp(delivered));
-    if (paidXrp + 1e-6 >= TOLL_PRICE_XRP) return { hash: tx.hash, paidXrp };
+}
+
+// ---------------------------------------------------------------------------
+// Facilitator discovery — probed once at startup. Cached tuple is used for
+// every subsequent 402 challenge and verify/settle call. Never hardcoded.
+// ---------------------------------------------------------------------------
+
+let FACILITATOR; // { scheme, network, x402Version }
+
+function extractXrplScheme(discoveryJson) {
+  // Discovery payloads vary by facilitator implementation. Look for an
+  // XRPL-network scheme entry wherever it may live: top-level `kinds`,
+  // `accepts`, or `schemes` arrays are all plausible shapes.
+  const candidates = [];
+  if (Array.isArray(discoveryJson?.kinds)) candidates.push(...discoveryJson.kinds);
+  if (Array.isArray(discoveryJson?.accepts)) candidates.push(...discoveryJson.accepts);
+  if (Array.isArray(discoveryJson?.schemes)) candidates.push(...discoveryJson.schemes);
+  if (Array.isArray(discoveryJson)) candidates.push(...discoveryJson);
+
+  for (const entry of candidates) {
+    if (!entry || typeof entry !== "object") continue;
+    const network = String(entry.network ?? "").toLowerCase();
+    const scheme = entry.scheme;
+    if (!scheme) continue;
+    if (network.includes("xrpl") || network.startsWith("xrpl")) {
+      return {
+        scheme,
+        network: entry.network,
+        x402Version: entry.x402Version ?? discoveryJson.x402Version ?? 2,
+      };
+    }
   }
   return null;
 }
 
-function send(res, code, body) {
-  const data = JSON.stringify(body);
-  res.writeHead(code, { "content-type": "application/json" });
-  res.end(data);
+async function probeFacilitator() {
+  const probePaths = ["/supported", "/v1/supported", "/.well-known/x402"];
+  for (const path of probePaths) {
+    const url = `${FACILITATOR_URL}${path}`;
+    try {
+      const res = await fetch(url, { method: "GET" });
+      console.log(`[startup] probe GET ${url} -> ${res.status}`);
+      if (res.status !== 200) continue;
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        console.log(`[startup] probe ${url} returned 200 but non-JSON body, skipping`);
+        continue;
+      }
+      const found = extractXrplScheme(json);
+      if (found) {
+        return found;
+      }
+      console.log(`[startup] probe ${url} returned 200 but no usable XRPL scheme in body`);
+    } catch (err) {
+      console.log(`[startup] probe GET ${url} -> ERROR ${err.message}`);
+    }
+  }
+  return null;
 }
 
-const server = http.createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-
-    // 1) Request a toll challenge.
-    if (req.method === "POST" && url.pathname === "/challenge") {
-      const tag = newTag();
-      challenges.set(tag, { priceXrp: TOLL_PRICE_XRP, createdAt: Date.now(), paid: false });
-      return send(res, 200, {
-        destination: TOLL_DESTINATION,
-        destinationTag: tag,
-        priceXrp: TOLL_PRICE_XRP,
-        instructions: `Send ${TOLL_PRICE_XRP} XRP to ${TOLL_DESTINATION} with DestinationTag ${tag}, then POST /redeem?tag=${tag}`,
-      });
-    }
-
-    // 2) Redeem a paid challenge for an access token.
-    if (req.method === "POST" && url.pathname === "/redeem") {
-      const tag = Number(url.searchParams.get("tag"));
-      const ch = challenges.get(tag);
-      if (!ch) return send(res, 404, { error: "unknown or expired tag" });
-
-      const client = new Client(TESTNET_URL);
-      await client.connect();
-      let payment;
-      try {
-        payment = await findPayment(client, tag);
-      } finally {
-        await client.disconnect();
-      }
-      if (!payment) return send(res, 402, { error: "payment not found yet", tag });
-
-      ch.paid = true;
-      const token = crypto.randomBytes(24).toString("hex");
-      tokens.set(token, Date.now() + 15 * 60 * 1000); // 15 min
-      return send(res, 200, { token, expiresInSeconds: 900, paidXrp: payment.paidXrp, txHash: payment.hash });
-    }
-
-    // 3) Access a gated resource with the token.
-    if (req.method === "GET" && url.pathname === "/gated") {
-      const token = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
-      const exp = tokens.get(token);
-      if (!exp || exp < Date.now()) return send(res, 401, { error: "invalid or expired token" });
-      return send(res, 200, { ok: true, message: "Access granted through the tollbooth." });
-    }
-
-    return send(res, 404, { error: "not found" });
-  } catch (err) {
-    return send(res, 500, { error: String(err?.message ?? err) });
+async function initFacilitator() {
+  const found = await probeFacilitator();
+  if (!found) {
+    console.error(
+      "[startup] FATAL: facilitator discovery failed — no probe returned 200 with a usable XRPL scheme. " +
+        `Tried GET ${FACILITATOR_URL}/supported, ${FACILITATOR_URL}/v1/supported, ${FACILITATOR_URL}/.well-known/x402.`
+    );
+    process.exit(1);
   }
+  FACILITATOR = found;
+  console.log(
+    `[startup] facilitator discovery OK: scheme=${FACILITATOR.scheme} network=${FACILITATOR.network} x402Version=${FACILITATOR.x402Version}`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Payment requirements builder
+// ---------------------------------------------------------------------------
+
+function buildPaymentRequirements(req, { invoiceId } = {}) {
+  return {
+    scheme: FACILITATOR.scheme,
+    network: FACILITATOR.network,
+    maxAmountRequired: String(TOLL_PRICE_DROPS),
+    asset: "XRP",
+    payTo: TOLL_DESTINATION,
+    resource: `${req.headers.host}${req.url}`,
+    maxTimeoutSeconds: 300,
+    facilitatorUrl: FACILITATOR_URL,
+    ...(invoiceId !== undefined ? { invoiceId } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// requirePayment middleware
+// Returns true  -> caller may proceed to the gated handler (paymentReceipt
+//                  is attached to res.paymentReceipt).
+// Returns false -> response has already been fully written; caller must stop.
+// ---------------------------------------------------------------------------
+
+async function requirePayment(req, res) {
+  const sigHeader = getHeaderCI(req, "PAYMENT-SIGNATURE") ?? getHeaderCI(req, "X-PAYMENT");
+
+  if (!sigHeader) {
+    const paymentRequired = {
+      x402Version: 2,
+      accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
+    };
+    const encoded = b64encode(paymentRequired);
+    res.writeHead(402, {
+      "Content-Type": "application/json",
+      "PAYMENT-REQUIRED": encoded,
+    });
+    res.end(JSON.stringify(paymentRequired));
+    log({ method: req.method, path: req.url, status: 402, payment_status: "unpaid" });
+    return false;
+  }
+
+  let paymentPayload;
+  try {
+    paymentPayload = b64decode(sigHeader);
+  } catch (err) {
+    res.writeHead(402, {
+      "Content-Type": "application/json",
+      "PAYMENT-ERROR": b64encode("malformed_payment_signature"),
+    });
+    res.end(JSON.stringify({ error: "malformed_payment_signature", code: 402 }));
+    log({ method: req.method, path: req.url, status: 402, payment_status: "error" });
+    return false;
+  }
+
+  const paymentRequirements = buildPaymentRequirements(req);
+
+  let verifyJson;
+  try {
+    const verifyRes = await fetch(`${FACILITATOR_URL}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentPayload, paymentRequirements, x402Version: 2 }),
+    });
+    verifyJson = await verifyRes.json().catch(() => ({}));
+    if (!verifyRes.ok || verifyJson?.isValid === false || verifyJson?.valid === false) {
+      const reason = verifyJson?.invalidReason ?? verifyJson?.error ?? "verify_failed";
+      res.writeHead(402, {
+        "Content-Type": "application/json",
+        "PAYMENT-ERROR": b64encode(String(reason)),
+      });
+      res.end(JSON.stringify({ error: String(reason), code: 402 }));
+      log({ method: req.method, path: req.url, status: 402, payment_status: "error", extra: `verify_reason=${reason}` });
+      return false;
+    }
+  } catch (err) {
+    res.writeHead(402, {
+      "Content-Type": "application/json",
+      "PAYMENT-ERROR": b64encode(`verify_request_failed: ${err.message}`),
+    });
+    res.end(JSON.stringify({ error: "verify_request_failed", code: 402 }));
+    log({ method: req.method, path: req.url, status: 402, payment_status: "error", extra: `verify_exception=${err.message}` });
+    return false;
+  }
+
+  let settleJson;
+  try {
+    const settleRes = await fetch(`${FACILITATOR_URL}/settle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentPayload, paymentRequirements, x402Version: 2 }),
+    });
+    settleJson = await settleRes.json().catch(() => ({}));
+    if (!settleRes.ok || settleJson?.success === false) {
+      const reason = settleJson?.error ?? "settle_failed";
+      res.writeHead(402, {
+        "Content-Type": "application/json",
+        "PAYMENT-ERROR": b64encode(String(reason)),
+      });
+      res.end(JSON.stringify({ error: String(reason), code: 402 }));
+      log({ method: req.method, path: req.url, status: 402, payment_status: "error", extra: `settle_reason=${reason}` });
+      return false;
+    }
+  } catch (err) {
+    res.writeHead(402, {
+      "Content-Type": "application/json",
+      "PAYMENT-ERROR": b64encode(`settle_request_failed: ${err.message}`),
+    });
+    res.end(JSON.stringify({ error: "settle_request_failed", code: 402 }));
+    log({ method: req.method, path: req.url, status: 402, payment_status: "error", extra: `settle_exception=${err.message}` });
+    return false;
+  }
+
+  res.paymentReceipt = settleJson;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
+async function handleHealth(req, res) {
+  const body = { ok: true, facilitator: FACILITATOR };
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
+  log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
+}
+
+async function handleDiscovery(req, res) {
+  const sample = {
+    x402Version: 2,
+    accepts: [buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() })],
+  };
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(sample));
+  log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
+}
+
+async function handleWalletRisk(req, res) {
+  const ok = await requirePayment(req, res);
+  if (!ok) return; // response already sent by requirePayment
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    body = {};
+  }
+
+  const receipt = res.paymentReceipt;
+  const responseBody = {
+    chain: body.chain,
+    address: body.address,
+    score: 42,
+    reason_codes: ["stub"],
+    human: "MVP stub, real logic in Phase 1",
+  };
+
+  res.writeHead(200, {
+    "Content-Type": "application/json",
+    "PAYMENT-RESPONSE": b64encode(receipt),
+  });
+  res.end(JSON.stringify(responseBody));
+  log({ method: req.method, path: req.url, status: 200, payment_status: "settled" });
+}
+
+async function handleNotFound(req, res) {
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "not_found", code: 404 }));
+  log({ method: req.method, path: req.url, status: 404, payment_status: "unpaid" });
+}
+
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
+
+async function router(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const path = url.pathname;
+
+  try {
+    if (req.method === "GET" && path === "/health") {
+      return await handleHealth(req, res);
+    }
+    if (req.method === "GET" && path === "/.well-known/x402") {
+      return await handleDiscovery(req, res);
+    }
+    if (req.method === "POST" && path === "/wallet-risk") {
+      return await handleWalletRisk(req, res);
+    }
+    return await handleNotFound(req, res);
+  } catch (err) {
+    console.error(`[error] ${req.method} ${path}: ${err.stack || err.message}`);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "internal_error", code: 500 }));
+    }
+    log({ method: req.method, path, status: 500, payment_status: "error" });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
+
+await initFacilitator();
+
+const server = http.createServer((req, res) => {
+  router(req, res);
 });
 
 server.listen(PORT, () => {
-  console.log(`tollbooth listening on :${PORT} (dest=${TOLL_DESTINATION}, price=${TOLL_PRICE_XRP} XRP)`);
+  console.log(
+    `tollbooth listening on :${PORT} (dest=${TOLL_DESTINATION}, price=${TOLL_PRICE_DROPS} drops, facilitator=${FACILITATOR_URL}, scheme=${FACILITATOR.scheme}, network=${FACILITATOR.network}, x402Version=${FACILITATOR.x402Version})`
+  );
 });
