@@ -6,3 +6,5 @@ node_modules/
 # temp/scratch files
 .tmp_*
 !.env.example
+payer.env
+!payer.env.example
