@@ -88,7 +88,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Addresses from Aave address-book GitHub repo (bgd-labs/aave-address-book), Ethereum mainnet v3 pool."
+      "notes": "Addresses from Aave address-book GitHub repo (bgd-labs/aave-address-book), Ethereum mainnet v3 pool.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -123,7 +124,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "v4 bounty is the largest in bug-bounty history at $15.5M; addresses from Uniswap governance deployments list."
+      "notes": "v4 bounty is the largest in bug-bounty history at $15.5M; addresses from Uniswap governance deployments list.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -173,7 +175,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "Addresses from Lido protocol docs / lidofinance GitHub."
+      "notes": "Addresses from Lido protocol docs / lidofinance GitHub.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -214,7 +217,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Addresses from docs.ethena.fi key-addresses page."
+      "notes": "Addresses from docs.ethena.fi key-addresses page.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -248,7 +252,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "PendleRouterV4 is deployed at the identical address across all supported chains."
+      "notes": "PendleRouterV4 is deployed at the identical address across all supported chains.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -279,7 +284,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Morpho Blue deployed at same address across multiple chains."
+      "notes": "Morpho Blue deployed at same address across multiple chains.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -334,7 +340,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Addresses from Layr-Labs/eigenlayer-contracts GitHub repo; verify against latest release before use."
+      "notes": "Addresses from Layr-Labs/eigenlayer-contracts GitHub repo; verify against latest release before use.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -374,7 +381,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "cUSDCv3 mainnet market addresses cross-verified via Compound community forum (comp.xyz) and Etherscan."
+      "notes": "cUSDCv3 mainnet market addresses cross-verified via Compound community forum (comp.xyz) and Etherscan.",
+      "status": "live"
     },
     {
       "platform": "immunefi",
@@ -419,7 +427,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "Max payout not clearly stated on Immunefi page at collection time; addresses verified against docs.curve.finance deployments pages and Etherscan."
+      "notes": "Max payout not clearly stated on Immunefi page at collection time; addresses verified against docs.curve.finance deployments pages and Etherscan.",
+      "status": "live"
     },
     {
       "platform": "hackenproof",
@@ -449,7 +458,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "Group 1 hard cap ~$500k; historical marketing claimed up to $1.5M."
+      "notes": "Group 1 hard cap ~$500k; historical marketing claimed up to $1.5M.",
+      "status": "live"
     },
     {
       "platform": "hackenproof",
@@ -514,7 +524,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "Cronos program covers multiple ecosystem projects; contracts listed here are VVS Finance addresses from the HackenProof scope table."
+      "notes": "Cronos program covers multiple ecosystem projects; contracts listed here are VVS Finance addresses from the HackenProof scope table.",
+      "status": "live"
     },
     {
       "platform": "cantina",
@@ -575,7 +586,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Covers all Coinbase onchain products and Base's smart contracts; L2 predeploy and bridge addresses from official docs.base.org contract-address pages."
+      "notes": "Covers all Coinbase onchain products and Base's smart contracts; L2 predeploy and bridge addresses from official docs.base.org contract-address pages.",
+      "status": "live"
     },
     {
       "platform": "cantina",
@@ -647,7 +659,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Covers RTokens, Asset Registry, Backing Managers, Basket Handlers, Folio contracts; addresses cross-verified against docs.reserve.org and reserve-protocol/protocol GitHub release notes (v3.4.0)."
+      "notes": "Covers RTokens, Asset Registry, Backing Managers, Basket Handlers, Folio contracts; addresses cross-verified against docs.reserve.org and reserve-protocol/protocol GitHub release notes (v3.4.0).",
+      "status": "live"
     },
     {
       "platform": "sherlock",
@@ -732,7 +745,8 @@
         }
       ],
       "kyc_required": true,
-      "notes": "Sherlock's most recently updated (Jul 29, 2026) bug bounty program; addresses from official aave.com/docs/resources/addresses dashboard."
+      "notes": "Sherlock's most recently updated (Jul 29, 2026) bug bounty program; addresses from official aave.com/docs/resources/addresses dashboard.",
+      "status": "live"
     },
     {
       "platform": "sherlock",
@@ -792,7 +806,8 @@
         }
       ],
       "kyc_required": false,
-      "notes": "Yearn V3 contract addresses from official docs.yearn.fi developer address pages; listed at $200,000 USDC on Sherlock's bug-bounty page."
+      "notes": "Yearn V3 contract addresses from official docs.yearn.fi developer address pages; listed at $200,000 USDC on Sherlock's bug-bounty page.",
+      "status": "live"
     }
   ],
   "skipped": [
