@@ -1,0 +1,832 @@
+{
+  "$schema_version": "0.1",
+  "generated_at": "2026-08-13T19:35:00Z",
+  "generated_by": "manual_seed_v0",
+  "source_note": "Hand-curated from platform bounty pages. Contract addresses verified against each program's public scope page or project docs at time of collection.",
+  "programs": [
+    {
+      "platform": "immunefi",
+      "project": "aave-v3",
+      "display_name": "Aave v3",
+      "url": "https://immunefi.com/bug-bounty/aave/",
+      "max_payout_usd": 1000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum",
+        "polygon",
+        "avalanche",
+        "optimism",
+        "arbitrum",
+        "metis",
+        "base",
+        "gnosis",
+        "bnbchain",
+        "scroll",
+        "zksync-era",
+        "linea"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+          "name": "PoolAddressesProvider"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+          "name": "Pool"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x64b761d848206f447fe2dd461b0c635ec39ebb27",
+          "name": "PoolConfigurator"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x54586be62e3c3580375ae3723c145253060ca0c2",
+          "name": "AaveOracle"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xc2aacf6553d20d1e9d78e365aaba8032af9c85b0",
+          "name": "ACLManager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c",
+          "name": "Collector (Treasury)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+          "name": "aWETH (aToken)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+          "name": "aUSDC (aToken)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+          "name": "GHO token"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "name": "WETH (underlying)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "name": "USDC (underlying)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "name": "DAI (underlying)"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Addresses from Aave address-book GitHub repo (bgd-labs/aave-address-book), Ethereum mainnet v3 pool."
+    },
+    {
+      "platform": "immunefi",
+      "project": "uniswap",
+      "display_name": "Uniswap (v3 + v4)",
+      "url": "https://immunefi.com/bug-bounty/uniswap/",
+      "max_payout_usd": 15500000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "name": "UniswapV3Factory"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe592427a0aece92de3edee1f18e0157c05861564",
+          "name": "SwapRouter (v3)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+          "name": "UniversalRouter"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "name": "PoolManager (v4)"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "v4 bounty is the largest in bug-bounty history at $15.5M; addresses from Uniswap governance deployments list."
+    },
+    {
+      "platform": "immunefi",
+      "project": "lido",
+      "display_name": "Lido",
+      "url": "https://immunefi.com/bug-bounty/lido/",
+      "max_payout_usd": 2000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+          "name": "Lido (stETH)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+          "name": "wstETH"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+          "name": "WithdrawalQueueERC721"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xc1d0b3de6792bf6b4b37eccdcc24e45978cfd2eb",
+          "name": "LidoLocator"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x23ed611be0e1a820978875c0122f92260804cddf",
+          "name": "Accounting"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xfddf38947afb03c621c71b06c9c70bce73f12999",
+          "name": "StakingRouter"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe76c52750019b80b43e36df30bf4060eb73f573a",
+          "name": "Burner"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "Addresses from Lido protocol docs / lidofinance GitHub."
+    },
+    {
+      "platform": "immunefi",
+      "project": "ethena",
+      "display_name": "Ethena",
+      "url": "https://immunefi.com/bug-bounty/ethena/scope/",
+      "max_payout_usd": 3000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum",
+        "mantle"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+          "name": "USDe token"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe3490297a08d6fc8da46edb7b6142e4f461b62d3",
+          "name": "EthenaMinting V2"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x2cc440b721d2cafd6d64908d6d8c4acc57f8afc3",
+          "name": "Mint/Redeem V1 (legacy)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+          "name": "sUSDe (StakedUSDe)"
+        },
+        {
+          "chain": "mantle",
+          "address": "0xf2fa332bd83149c66b09b45670bce64746c6b439",
+          "name": "EthenaLPStaking"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Addresses from docs.ethena.fi key-addresses page."
+    },
+    {
+      "platform": "immunefi",
+      "project": "pendle",
+      "display_name": "Pendle",
+      "url": "https://immunefi.com/bug-bounty/pendle/scope/",
+      "max_payout_usd": 250000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum",
+        "arbitrum",
+        "base",
+        "bnbchain",
+        "optimism"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x888888888889758f76e7103c6cbf23abbf58f946",
+          "name": "PendleRouterV4"
+        },
+        {
+          "chain": "arbitrum",
+          "address": "0x888888888889758f76e7103c6cbf23abbf58f946",
+          "name": "PendleRouterV4"
+        },
+        {
+          "chain": "base",
+          "address": "0x888888888889758f76e7103c6cbf23abbf58f946",
+          "name": "PendleRouterV4"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "PendleRouterV4 is deployed at the identical address across all supported chains."
+    },
+    {
+      "platform": "immunefi",
+      "project": "morpho",
+      "display_name": "Morpho",
+      "url": "https://immunefi.com/bug-bounty/morpho/scope/",
+      "max_payout_usd": 2500000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum",
+        "base"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+          "name": "Morpho Blue"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x870ac11d48b15db9a138cf899d20f13f79ba00bc",
+          "name": "AdaptiveCurveIRM"
+        },
+        {
+          "chain": "base",
+          "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+          "name": "Morpho Blue"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Morpho Blue deployed at same address across multiple chains."
+    },
+    {
+      "platform": "immunefi",
+      "project": "eigenlayer",
+      "display_name": "EigenLayer",
+      "url": "https://immunefi.com/bug-bounty/eigenlayer/scope/",
+      "max_payout_usd": 2000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x858646372cc42e1a627fce94aa7a7033e7cf075a",
+          "name": "StrategyManager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x91e677b07f7af907ec9a428aafa9fc14a0d3a338",
+          "name": "EigenPodManager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x39053d51b77dc0d36036fc1fcc8cb819df8ef37a",
+          "name": "DelegationManager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x135dda560e946695d6f155dacafc6f1f25c1f5af",
+          "name": "AVSDirectory"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x7750d328b314effa365a0402ccfd489b80b0adda",
+          "name": "RewardsCoordinator"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x25e5f8b1e7adf44518d35d5b2271f114e081f0e5",
+          "name": "PermissionController"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x78469728304326cbc65f8f95fa756b0b73164462",
+          "name": "AllocationManager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xec53bf9167f50cdeb3ae105f56099aaab9061f83",
+          "name": "EIGEN token"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Addresses from Layr-Labs/eigenlayer-contracts GitHub repo; verify against latest release before use."
+    },
+    {
+      "platform": "immunefi",
+      "project": "compound-v3",
+      "display_name": "Compound v3",
+      "url": "https://immunefi.com/bug-bounty/compound/",
+      "max_payout_usd": 1000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+          "name": "cUSDCv3 (Comet proxy)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x42f9505a376761b180e27a01ba0554244ed1de7d",
+          "name": "cUSDCv3 Implementation"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x285617313887d43256f852cae0ee4de4b68d45b0",
+          "name": "cUSDCv3 Ext"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x316f9708bb98af7da9c68c1c3b5e79039cd336e3",
+          "name": "Configurator"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x1b0e765f6224c21223aea2af16c1c46e38885a40",
+          "name": "CometRewards"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "cUSDCv3 mainnet market addresses cross-verified via Compound community forum (comp.xyz) and Etherscan."
+    },
+    {
+      "platform": "immunefi",
+      "project": "curve",
+      "display_name": "Curve",
+      "url": "https://immunefi.com/bug-bounty/curvefinance/",
+      "max_payout_usd": 500000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7",
+          "name": "3pool (StableSwap3Pool)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490",
+          "name": "3Crv LP token"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xd533a949740bb3306d119cc777fa900ba034cd52",
+          "name": "CRV token"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
+          "name": "crvUSD token"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xc9332fdcb1c491dcc683bae86fe3cb70360738bc",
+          "name": "crvUSD Controller Factory"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x2f50d538606fa9edd2b11e2446beb18c9d5846bb",
+          "name": "Gauge Controller"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "Max payout not clearly stated on Immunefi page at collection time; addresses verified against docs.curve.finance deployments pages and Etherscan."
+    },
+    {
+      "platform": "hackenproof",
+      "project": "smardex",
+      "display_name": "SmarDex",
+      "url": "https://hackenproof.com/programs/smardex-smart-contracts",
+      "max_payout_usd": 500000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x5de8ab7e27f6e7a1fff3e5b337584aa43961beef",
+          "name": "SmarDexToken"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x7753f36e711b66a0350a753aba9f5651bae76a1d",
+          "name": "SmardexFactory"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xef2f9b48d7ec80440ab4573df1a2abdbe06d3f60",
+          "name": "SmardexRouter"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "Group 1 hard cap ~$500k; historical marketing claimed up to $1.5M."
+    },
+    {
+      "platform": "hackenproof",
+      "project": "cronos-vvs-finance",
+      "display_name": "Cronos (VVS Finance scope)",
+      "url": "https://hackenproof.com/programs/cronos-smart-contracts",
+      "max_payout_usd": 250000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "cronos"
+      ],
+      "contracts": [
+        {
+          "chain": "cronos",
+          "address": "0x5c7f8a570d578ed84e63fdfa7b1ee72deae1ae23",
+          "name": "VVS - WCRO"
+        },
+        {
+          "chain": "cronos",
+          "address": "0x3b44b2a187a7b3824131f8db5a74194d0a42fc15",
+          "name": "VVS - Factory"
+        },
+        {
+          "chain": "cronos",
+          "address": "0x145863eb42cf62847a6ca784e6416c1682b1b2ae",
+          "name": "VVS - Router"
+        },
+        {
+          "chain": "cronos",
+          "address": "0x2d03bece6747adc00e1a131bba1469c15fd11e03",
+          "name": "VVS - Token"
+        },
+        {
+          "chain": "cronos",
+          "address": "0x6a2d178585806de5a2e5e7f9acfce44680637284",
+          "name": "VVS - Workbench"
+        },
+        {
+          "chain": "cronos",
+          "address": "0xdccd6455ae04b03d785f12196b492b18129564bc",
+          "name": "VVS - Craftsman"
+        },
+        {
+          "chain": "cronos",
+          "address": "0x5e954f5972ec6bfc7decd75779f10d848230345f",
+          "name": "VVS - Multicall2"
+        },
+        {
+          "chain": "cronos",
+          "address": "0xa6ff77fc8e839679d4f7408e8988b564de1a2dcd",
+          "name": "VVS - VVSVault"
+        },
+        {
+          "chain": "cronos",
+          "address": "0xe61db569e231b3f5530168aa2c9d50246525b6d6",
+          "name": "VVS - VVSPair CRO-USDC"
+        },
+        {
+          "chain": "cronos",
+          "address": "0xbc149c62efe8afc61728fc58b1b66a0661712e76",
+          "name": "VVS - CraftsmanV2"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "Cronos program covers multiple ecosystem projects; contracts listed here are VVS Finance addresses from the HackenProof scope table."
+    },
+    {
+      "platform": "cantina",
+      "project": "coinbase-base",
+      "display_name": "Coinbase / Base Bug Bounty",
+      "url": "https://cantina.xyz/bounties/55316f42-3c5e-4746-9bd0-0f18dcbc344b",
+      "max_payout_usd": 5000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "base",
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "base",
+          "address": "0x4200000000000000000000000000000000000006",
+          "name": "WETH9 (Base predeploy)"
+        },
+        {
+          "chain": "base",
+          "address": "0x4200000000000000000000000000000000000007",
+          "name": "L2CrossDomainMessenger"
+        },
+        {
+          "chain": "base",
+          "address": "0x4200000000000000000000000000000000000010",
+          "name": "L2StandardBridge"
+        },
+        {
+          "chain": "base",
+          "address": "0x4200000000000000000000000000000000000011",
+          "name": "SequencerFeeVault"
+        },
+        {
+          "chain": "base",
+          "address": "0xf10122d428b4bc8a9d050d06a2037259b4c4b83b",
+          "name": "OptimismMintableERC20Factory"
+        },
+        {
+          "chain": "base",
+          "address": "0x4200000000000000000000000000000000000018",
+          "name": "ProxyAdmin"
+        },
+        {
+          "chain": "base",
+          "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "name": "USDC (native, Base)"
+        },
+        {
+          "chain": "base",
+          "address": "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
+          "name": "cbETH"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x3154cf16ccdb4c6d922629664174b904d80f2c35",
+          "name": "Base Bridge (L1)"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Covers all Coinbase onchain products and Base's smart contracts; L2 predeploy and bridge addresses from official docs.base.org contract-address pages."
+    },
+    {
+      "platform": "cantina",
+      "project": "reserve-protocol",
+      "display_name": "Reserve Protocol Bug Bounty",
+      "url": "https://cantina.xyz/bounties",
+      "max_payout_usd": 10000000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum",
+        "base",
+        "bnbchain"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x320623b8e4ff03373931769a31fc52a4e78b5d70",
+          "name": "RsrToken (RSR)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x0262e3e15ccfd2221b35d05909222f1f5fcdcd80",
+          "name": "FolioFeeRegistry"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xa665b273997f70b647b66fa7ed021287544849db",
+          "name": "FolioVersionRegistry"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe926577a152ffd5f5036f88bf7e8e8d3652b558c",
+          "name": "GovernanceDeployer"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x24a4b37f9c40fb0e80ec436df2e9989fbafa8bb7",
+          "name": "main (Main contract, v3.4.0)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x784955641292b0014bc9ef82321300f0b6c7e36d",
+          "name": "rToken (implementation, v3.4.0)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe433673648c94fec0706e5ac95d4f4097f58b5fb",
+          "name": "stRSR (implementation, v3.4.0)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xbf1c0206de440b2cf76ea4405e1dbf2fc227a463",
+          "name": "assetRegistry"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x20c801869e578e71f2298649870765aa81f7dc69",
+          "name": "backingManager"
+        },
+        {
+          "chain": "base",
+          "address": "0xab36452dbac151be02b16ca17d8919826072f64a",
+          "name": "RsrToken (RSR, Base)"
+        },
+        {
+          "chain": "base",
+          "address": "0x0262e3e15ccfd2221b35d05909222f1f5fcdcd80",
+          "name": "FolioFeeRegistry (Base)"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Covers RTokens, Asset Registry, Backing Managers, Basket Handlers, Folio contracts; addresses cross-verified against docs.reserve.org and reserve-protocol/protocol GitHub release notes (v3.4.0)."
+    },
+    {
+      "platform": "sherlock",
+      "project": "aave-v4",
+      "display_name": "Aave V4 Bug Bounty",
+      "url": "https://audits.sherlock.xyz/bug-bounties/300",
+      "max_payout_usd": 2500000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0xcca852bc40e560adc3b1cc58ca5b55638ce826c9",
+          "name": "Core Hub"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x06002e9c4412cb7814a791ea3666d905871e536a",
+          "name": "Plus Hub"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x943827dca022d0f354a8a8c332da1e5eb9f9f931",
+          "name": "Prime Hub"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x94e7a5dcbe816e498b89ab752661904e2f56c485",
+          "name": "Main Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x973a023a77420ba610f06b3858ad991df6d85a08",
+          "name": "Bluechip Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xe1900480ac69f0b296841cd01cc37546d92f35cd",
+          "name": "Lido eSpoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xbf10bdfe177de0336afd7fccf80a904e15386219",
+          "name": "EtherFi eSpoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x3131fe68c4722e726fe6b2819ed68e514395b9a4",
+          "name": "Kelp eSpoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x7ec68b5695e803e98a21a9a05d744f28b0a7753d",
+          "name": "Lombard BTC Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x65407b940966954b23dfa3caa5c0702bb42984dc",
+          "name": "Gold Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xd8b93635b8c6d0ff98cbe90b5988e3f2d1cd9da1",
+          "name": "Forex Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x58131e79531cab1d52301228d1f7b842f26b9649",
+          "name": "Ethena Correlated Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xba1b3d55d249692b669a164024a838309b7508af",
+          "name": "Ethena Ecosystem Spoke"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xb9b0b8616f6bf6841972a52058132be08d723155",
+          "name": "Treasury Spoke"
+        }
+      ],
+      "kyc_required": true,
+      "notes": "Sherlock's most recently updated (Jul 29, 2026) bug bounty program; addresses from official aave.com/docs/resources/addresses dashboard."
+    },
+    {
+      "platform": "sherlock",
+      "project": "yearn",
+      "display_name": "Yearn",
+      "url": "https://audits.sherlock.xyz/bug-bounties",
+      "max_payout_usd": 200000,
+      "asset_type": "smart_contract",
+      "chains": [
+        "ethereum"
+      ],
+      "contracts": [
+        {
+          "chain": "ethereum",
+          "address": "0x775f09d6f3c8d2182dfa8bce8628acf51105653c",
+          "name": "Protocol Address Provider (v3)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xdd3fa86409658d207a9be0141ee560c8db557824",
+          "name": "Vault original (v3.1.0)"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x310ac28acf5e514abdbff9ab25e21f1bfe22bcac",
+          "name": "VaultFactory"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x310f5db015e9d6e542fd41bd4542640790791e76",
+          "name": "TokenizedStrategy"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x33333333d5efb92f19a5f94a43456b3cec2797ae",
+          "name": "V3 Deployer Multisig"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xd40ecf29e001c76dcc4cc0d9cd50520ce845b038",
+          "name": "Current V3 Registry"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0xb3bd6b2e61753c311efbcf0111f75d29706d9a41",
+          "name": "Role Manager"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x5a74cb32d36f2f517db6f7b0a0591e09b22cde69",
+          "name": "Accountant"
+        },
+        {
+          "chain": "ethereum",
+          "address": "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e",
+          "name": "YFI token"
+        }
+      ],
+      "kyc_required": false,
+      "notes": "Yearn V3 contract addresses from official docs.yearn.fi developer address pages; listed at $200,000 USDC on Sherlock's bug-bounty page."
+    }
+  ],
+  "skipped": [
+    {
+      "project": "sky-makerdao",
+      "reason": "Only outdated 2019 Single-Collateral DAI era addresses were found; current Sky/MakerDAO chainlog addresses could not be verified within the time budget, so no contracts could be safely included."
+    },
+    {
+      "project": "dexalot",
+      "reason": "HackenProof scope and official Dexalot docs list contracts (Portfolio, TradePairs, Exchange, PortfolioBridge) only as GitHub source file paths, not deployed addresses; docs.dexalot.com contracts page rendered no addresses. Program also shows a PAUSED tag on HackenProof."
+    },
+    {
+      "project": "scallop",
+      "reason": "Scallop is a Sui/Move-based protocol; Sui addresses are 0x + 64 hex characters (66 total), which does not match the required 42-character 0x-EVM address format."
+    },
+    {
+      "project": "near-intents-bridges",
+      "reason": "NEAR Intents Bridges covers NEAR/Rust infrastructure (near/mpc, omni-bridge, btc-bridge); NEAR account identifiers are not 0x-EVM format, and no EVM-side contract addresses were confirmed. Program is also shown as PAUSED on HackenProof."
+    },
+    {
+      "project": "circuit",
+      "reason": "Circuit (CircuitDAO) is built on the Chia blockchain using Chialisp puzzles, not EVM smart contracts; no 0x-format addresses exist for its core protocol."
+    },
+    {
+      "project": "perena",
+      "reason": "Perena is a Solana program (non-EVM); Cantina bounty page (https://cantina.xyz/bounties/4bbe54f6-c8ea-4704-a756-0066689d7371) does not expose 0x-format EVM addresses."
+    },
+    {
+      "project": "deri-protocol",
+      "reason": "Deri V4 scope is EVM-based (Ethereum/Arbitrum/BNB Chain) but the Cantina bounty page (https://cantina.xyz/bounties/6d37b9b2-b37e-4d9d-a8e6-c0f41ddcea0b) did not surface verifiable deployed contract addresses within the collection time budget."
+    },
+    {
+      "project": "dydx",
+      "reason": "dYdX v4 is a Cosmos SDK application-specific blockchain, not EVM-based; the Cantina bounty page (https://cantina.xyz/bounties/83b38645-7554-43c3-88d4-cac2910650b7) explicitly states no contract addresses are provided, and dYdX Chain addresses are not 0x-EVM format."
+    }
+  ]
+}
