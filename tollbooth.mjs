@@ -1,6 +1,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { scoreWallet } from './lib/wallet-risk.mjs';
+import { scoreContract } from './lib/contract-risk.mjs';
 
 // ---------------------------------------------------------------------------
 // x402 v2 compliant tollbooth merchant server.
@@ -404,6 +405,52 @@ async function handleWalletRisk(req, res) {
   log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
 }
 
+async function handleContractRisk(req, res) {
+  const ok = await requirePayment(req, res);
+  if (!ok) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    body = {};
+  }
+
+  const receipt = res.paymentReceipt;
+  const addr = body.address;
+  const chain = typeof body.chain === 'string' ? body.chain.toLowerCase() : 'eth';
+
+  if (!addr) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "missing_address", message: 'provide {"address":"...","chain":"eth|base"} in request body' }));
+    log({ method: req.method, path: req.url, status: 400, payment_status: "settled" });
+    return;
+  }
+
+  let responseBody;
+  let statusCode;
+  try {
+    const result = await scoreContract(addr, chain);
+    if (result && result.error) {
+      statusCode = 400;
+      responseBody = result;
+    } else {
+      statusCode = 200;
+      responseBody = result;
+    }
+  } catch (e) {
+    console.error('[contract-risk] handler error:', e);
+    statusCode = 500;
+    responseBody = { error: "internal_error", message: e.message };
+  }
+
+  const headers = { "Content-Type": "application/json" };
+  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  res.writeHead(statusCode, headers);
+  res.end(JSON.stringify(responseBody));
+  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
+}
+
 async function handleNotFound(req, res) {
   res.writeHead(404, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ error: "not_found", code: 404 }));
@@ -427,6 +474,9 @@ async function router(req, res) {
     }
     if (req.method === "POST" && path === "/wallet-risk") {
       return await handleWalletRisk(req, res);
+    }
+    if (req.method === "POST" && path === "/contract-risk") {
+      return await handleContractRisk(req, res);
     }
     return await handleNotFound(req, res);
   } catch (err) {
