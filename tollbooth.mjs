@@ -371,6 +371,7 @@ async function handleWalletRisk(req, res) {
 
   const receipt = res.paymentReceipt;
   const addr = body.address;
+  const chainOverride = typeof body.chain === 'string' ? body.chain.toLowerCase() : undefined;
 
   if (!addr) {
     res.writeHead(400, { "Content-Type": "application/json" });
@@ -382,7 +383,7 @@ async function handleWalletRisk(req, res) {
   let responseBody;
   let statusCode;
   try {
-    const result = await scoreWallet(addr);
+    const result = await scoreWallet(addr, chainOverride);
     if (result && result.error) {
       statusCode = 400;
       responseBody = result;
