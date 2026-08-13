@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly XRPL Tollbooth bounty-scope refresh (04:00 UTC)
+Requires=xrpl-tollbooth-scope-refresh.service
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

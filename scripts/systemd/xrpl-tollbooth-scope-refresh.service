@@ -1,0 +1,15 @@
+[Unit]
+Description=XRPL Tollbooth nightly bounty-scope refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/xrpl-tollbooth
+EnvironmentFile=/root/xrpl-tollbooth/refresh.env
+ExecStart=/usr/bin/node /root/xrpl-tollbooth/scripts/refresh-scope.mjs --write --commit
+StandardOutput=append:/var/log/xrpl-tollbooth-scope-refresh.log
+StandardError=append:/var/log/xrpl-tollbooth-scope-refresh.log
+# Fail loudly but don't restart — cron will try again tomorrow
+Restart=no
+TimeoutStartSec=600

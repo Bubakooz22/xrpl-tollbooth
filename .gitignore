@@ -8,3 +8,5 @@ node_modules/
 !.env.example
 payer.env
 !payer.env.example
+refresh.env
+!refresh.env.example
