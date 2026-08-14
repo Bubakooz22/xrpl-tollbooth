@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "better-sqlite3": "^11.3.0",
     "x402-xrpl": "^0.3.1",
     "xrpl": "^5.0.0"
   },

@@ -10,3 +10,10 @@ payer.env
 !payer.env.example
 refresh.env
 !refresh.env.example
+
+# Phase 6.0 — API key sqlite store
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
