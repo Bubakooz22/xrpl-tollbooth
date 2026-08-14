@@ -1,0 +1,167 @@
+{
+  "schema_version": "agent-manifest/1.0",
+  "name": "xrpl-tollbooth",
+  "display_name": "XRPL Toll Booth \u2014 Cybersecurity API",
+  "description": "Pay-per-call cybersecurity endpoints for Web3 agents and auditors, settled on the XRP Ledger via x402. Wallet risk, contract risk, transaction simulation, bounty-scope lookup, and Foundry PoC verification.",
+  "version": "0.6.1",
+  "homepage": "https://github.com/Bubakooz22/xrpl-tollbooth",
+  "openapi": "/.well-known/openapi.json",
+  "contact": {
+    "name": "transactionguardian2025",
+    "url": "https://github.com/Bubakooz22/xrpl-tollbooth/issues"
+  },
+  "networks": {
+    "primary": {
+      "kind": "xrpl-testnet",
+      "network": "xrpl-testnet",
+      "x402_version": 2,
+      "merchant_address": "rHwXHECZUzumTAVACsR6N6pRHtvpTUEfzf",
+      "facilitator_url": "https://xrpl-facilitator-testnet.t54.ai",
+      "scheme": "xrpl-testnet-native"
+    }
+  },
+  "auth_models": [
+    {
+      "id": "x402",
+      "description": "Pay per call on XRPL. First request returns 402 with signed payment requirements; sign and retry.",
+      "docs": "docs/x402-spec-notes.md"
+    },
+    {
+      "id": "bearer_api_key",
+      "description": "Bearer token `tb_live_<32hex>`. Closed beta \u2014 open a GitHub issue to request access.",
+      "header": "Authorization",
+      "format": "Bearer tb_live_<32hex>",
+      "docs": "docs/api-key-auth.md"
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "wallet-risk",
+      "method": "POST",
+      "path": "/wallet-risk",
+      "auth": "x402",
+      "summary": "Score a wallet address for OFAC + scam-list membership across ETH, XRPL, SOL.",
+      "pricing": [
+        { "asset": "XRP", "amount_drops": 1000 },
+        { "asset": "RLUSD", "amount": "0.002", "issuer": "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV", "currency_hex": "524C555344000000000000000000000000000000" }
+      ],
+      "input_schema_ref": "/.well-known/openapi.json#/components/schemas/WalletRiskRequest",
+      "output_schema_ref": "/.well-known/openapi.json#/components/schemas/WalletRiskResponse",
+      "reason_codes": [
+        "OFAC_SANCTIONED",
+        "SCAM_LIST_HIT",
+        "UNKNOWN_ADDRESS"
+      ]
+    },
+    {
+      "id": "contract-risk",
+      "method": "POST",
+      "path": "/contract-risk",
+      "auth": "x402",
+      "summary": "Score a smart contract for known-exploit database matches plus source heuristics.",
+      "pricing": [
+        { "asset": "XRP", "amount_drops": 1000 },
+        { "asset": "RLUSD", "amount": "0.002", "issuer": "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV", "currency_hex": "524C555344000000000000000000000000000000" }
+      ],
+      "input_schema_ref": "/.well-known/openapi.json#/components/schemas/ContractRiskRequest",
+      "output_schema_ref": "/.well-known/openapi.json#/components/schemas/ContractRiskResponse",
+      "reason_codes": [
+        "KNOWN_EXPLOIT_MATCH",
+        "SELFDESTRUCT_PRESENT",
+        "DELEGATECALL_PRESENT",
+        "PROXY_UPGRADEABLE",
+        "SOURCE_UNVERIFIED"
+      ]
+    },
+    {
+      "id": "tx-simulate-risk",
+      "method": "POST",
+      "path": "/tx-simulate-risk",
+      "auth": "x402",
+      "summary": "Simulate an Ethereum transaction on a mainnet fork; detect unlimited approvals, ownership transfer, proxy upgrades, selfdestruct, reverts, multi-token outbound flows.",
+      "pricing": [
+        { "asset": "XRP", "amount_drops": 1000 },
+        { "asset": "RLUSD", "amount": "0.002", "issuer": "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV", "currency_hex": "524C555344000000000000000000000000000000" }
+      ],
+      "latency_ms_p50": 2500,
+      "latency_ms_p95": 5000,
+      "input_schema_ref": "/.well-known/openapi.json#/components/schemas/TxSimulateRiskRequest",
+      "output_schema_ref": "/.well-known/openapi.json#/components/schemas/TxSimulateRiskResponse",
+      "reason_codes": [
+        "UNLIMITED_APPROVAL_GRANTED",
+        "OWNERSHIP_TRANSFERRED",
+        "PROXY_UPGRADED",
+        "SELFDESTRUCT_INVOKED",
+        "TX_REVERTED",
+        "MULTIPLE_OUTBOUND_TOKEN_TRANSFERS"
+      ]
+    },
+    {
+      "id": "scope-check",
+      "method": "POST",
+      "path": "/scope-check",
+      "auth": "x402",
+      "summary": "Check whether an address is in scope of any known bug bounty program.",
+      "pricing": [
+        { "asset": "XRP", "amount_drops": 1000 },
+        { "asset": "RLUSD", "amount": "0.002", "issuer": "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV", "currency_hex": "524C555344000000000000000000000000000000" }
+      ],
+      "input_schema_ref": "/.well-known/openapi.json#/components/schemas/ScopeCheckRequest",
+      "output_schema_ref": "/.well-known/openapi.json#/components/schemas/ScopeCheckResponse",
+      "coverage": { "programs": 15, "contracts": 109, "refreshed_daily": true }
+    },
+    {
+      "id": "verify-poc",
+      "method": "POST",
+      "path": "/verify-poc",
+      "auth": "bearer_api_key",
+      "beta": true,
+      "summary": "Grade a Foundry PoC (.t.sol) against an Ethereum mainnet fork. Returns verified true/false and a reason code.",
+      "rate_limit": { "per_minute": 10, "bucket": "verify-poc" },
+      "latency_ms_p50": 15000,
+      "latency_ms_p95": 60000,
+      "hard_timeout_ms": 120000,
+      "input_schema_ref": "/.well-known/openapi.json#/components/schemas/VerifyPocRequest",
+      "output_schema_ref": "/.well-known/openapi.json#/components/schemas/VerifyPocResponse",
+      "reason_codes": [
+        "POC_VERIFIED",
+        "POC_UNVERIFIED",
+        "COMPILE_ERROR",
+        "PARSE_FAILURE",
+        "NO_TESTS_FOUND",
+        "TIMEOUT",
+        "RPC_UNREACHABLE",
+        "MISSING_TEST_FILE",
+        "INVALID_BASE64",
+        "TEST_FILE_TOO_LARGE",
+        "UNSUPPORTED_CHAIN",
+        "INVALID_EXPECTED_RESULT",
+        "FFI_DISALLOWED",
+        "FS_WRITE_DISALLOWED",
+        "ENV_WRITE_DISALLOWED",
+        "FORGE_STD_BOOTSTRAP_FAILED",
+        "INTERNAL_ERROR"
+      ],
+      "constraints": {
+        "single_file_only": true,
+        "max_source_bytes": 131072,
+        "chains": ["eth"],
+        "banned_cheatcodes": ["vm.ffi", "vm.writeFile", "vm.setEnv", "vm.closeFile", "vm.removeFile"]
+      }
+    },
+    {
+      "id": "auth-ping",
+      "method": "GET",
+      "path": "/auth-ping",
+      "auth": "bearer_api_key",
+      "summary": "Verify a Bearer API key works. No side effects.",
+      "rate_limit": { "per_minute": 60 }
+    }
+  ],
+  "conventions": {
+    "reason_codes": "Every risk/verify endpoint returns a stable `reason_codes[]` array so agents can grade findings without parsing prose.",
+    "risk_levels": ["low", "medium", "high", "critical"],
+    "chains": ["eth", "xrpl", "sol"],
+    "cache_policy": "No caching on paid endpoints in v0.6.1 (`cache_ttl_seconds: 0`)."
+  }
+}
