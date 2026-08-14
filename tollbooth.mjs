@@ -4,6 +4,14 @@ import { scoreWallet } from './lib/wallet-risk.mjs';
 import { scoreContract } from './lib/contract-risk.mjs';
 import { simulateTransaction } from './lib/tx-simulate-risk.mjs';
 import { lookupScope, lookupScopeBatch } from './lib/scope-check.mjs';
+import {
+  initApiKeyStore,
+  createApiKey,
+  verifyApiKey,
+  revokeApiKey,
+  listApiKeys,
+} from './lib/api-keys.mjs';
+import { initRateLimiter, checkRateLimit } from './lib/rate-limit.mjs';
 
 // ---------------------------------------------------------------------------
 // x402 v2 compliant tollbooth merchant server.
@@ -16,6 +24,24 @@ for (const key of REQUIRED_ENV) {
     console.error(`[startup] FATAL: missing required env var ${key}`);
     process.exit(1);
   }
+}
+
+// API-key auth is optional at boot — endpoints that require it will 500
+// if ADMIN_MASTER_KEY is missing. This lets the existing x402 paths keep
+// working during a partial rollout.
+const ADMIN_MASTER_KEY = process.env.ADMIN_MASTER_KEY || null;
+const API_KEY_DB_PATH = process.env.API_KEY_DB_PATH || './data/api-keys.sqlite';
+initApiKeyStore(API_KEY_DB_PATH);
+const RATE_LIMIT_CONFIG = initRateLimiter();
+if (!ADMIN_MASTER_KEY) {
+  console.warn(
+    "[startup] WARN: ADMIN_MASTER_KEY not set — /admin/keys* routes will return 503. " +
+      "API-key-gated endpoints (Phase 6+) will 401."
+  );
+} else {
+  console.log(
+    `[startup] api-key auth enabled: db=${API_KEY_DB_PATH} rate_limit=${RATE_LIMIT_CONFIG.cap}/min`
+  );
 }
 
 const TOLL_DESTINATION = process.env.TOLL_DESTINATION;
@@ -564,6 +590,181 @@ async function handleNotFound(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 6.0 — API-key auth
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract a Bearer token from the Authorization header. Returns the raw
+ * token (no scheme prefix) or null.
+ */
+function extractBearer(req) {
+  const raw = getHeaderCI(req, "authorization");
+  if (!raw || typeof raw !== "string") return null;
+  const match = raw.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+/**
+ * Constant-time string comparison. Length differences leak, which is
+ * acceptable here since the admin key length is fixed.
+ */
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+/**
+ * Middleware for API-key-gated endpoints. Verifies the Bearer token,
+ * enforces rate limits, and writes a 401/429 response on failure.
+ * Returns { ok: true, key } on success (caller should proceed with the
+ * business logic) or { ok: false } if the response has already been sent.
+ */
+async function requireApiKey(req, res) {
+  const bearer = extractBearer(req);
+  if (!bearer) {
+    res.writeHead(401, {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": 'Bearer realm="xrpl-tollbooth"',
+    });
+    res.end(JSON.stringify({ error: "missing_api_key", code: 401 }));
+    log({ method: req.method, path: req.url, status: 401, payment_status: "unauthenticated" });
+    return { ok: false };
+  }
+
+  const key = verifyApiKey(bearer);
+  if (!key) {
+    res.writeHead(401, {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": 'Bearer realm="xrpl-tollbooth", error="invalid_token"',
+    });
+    res.end(JSON.stringify({ error: "invalid_api_key", code: 401 }));
+    log({ method: req.method, path: req.url, status: 401, payment_status: "unauthenticated" });
+    return { ok: false };
+  }
+
+  const rl = checkRateLimit(key.id);
+  res.setHeader("X-RateLimit-Limit", String(rl.cap));
+  res.setHeader("X-RateLimit-Remaining", String(Math.max(0, rl.remaining)));
+  res.setHeader("X-RateLimit-Reset", String(rl.resetAt));
+  if (!rl.allowed) {
+    res.writeHead(429, {
+      "Content-Type": "application/json",
+      "Retry-After": String(rl.retryAfterSec),
+    });
+    res.end(JSON.stringify({ error: "rate_limited", code: 429, retryAfterSec: rl.retryAfterSec }));
+    log({
+      method: req.method,
+      path: req.url,
+      status: 429,
+      payment_status: "authenticated",
+      extra: `key=${key.prefix} rate_limited`,
+    });
+    return { ok: false };
+  }
+
+  return { ok: true, key };
+}
+
+/**
+ * Middleware for admin routes. Requires ADMIN_MASTER_KEY as Bearer.
+ * Returns { ok: true } or writes the response and returns { ok: false }.
+ */
+function requireMasterKey(req, res) {
+  if (!ADMIN_MASTER_KEY) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "admin_key_not_configured", code: 503 }));
+    log({ method: req.method, path: req.url, status: 503, payment_status: "unauthenticated" });
+    return { ok: false };
+  }
+  const bearer = extractBearer(req);
+  if (!bearer || !timingSafeEqualStr(bearer, ADMIN_MASTER_KEY)) {
+    res.writeHead(401, {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": 'Bearer realm="xrpl-tollbooth-admin"',
+    });
+    res.end(JSON.stringify({ error: "invalid_admin_credentials", code: 401 }));
+    log({ method: req.method, path: req.url, status: 401, payment_status: "unauthenticated" });
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Admin route handlers (Phase 6.0)
+// ---------------------------------------------------------------------------
+
+async function handleAdminCreateKey(req, res) {
+  if (!requireMasterKey(req, res).ok) return;
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (err) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid_json_body", code: 400 }));
+    return;
+  }
+  const name = body?.name;
+  try {
+    const created = createApiKey(name);
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        id: created.id,
+        name: created.name,
+        prefix: created.prefix,
+        key: created.plaintext, // shown exactly once
+        created_at: created.createdAt,
+        warning: "Store this key immediately — it will never be shown again.",
+      })
+    );
+    log({
+      method: req.method,
+      path: req.url,
+      status: 201,
+      payment_status: "admin",
+      extra: `created_key=${created.prefix} name=${created.name}`,
+    });
+  } catch (err) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message, code: 400 }));
+  }
+}
+
+async function handleAdminListKeys(req, res) {
+  if (!requireMasterKey(req, res).ok) return;
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const includeRevoked = url.searchParams.get("include_revoked") !== "false";
+  const keys = listApiKeys({ includeRevoked });
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ keys, count: keys.length }));
+  log({ method: req.method, path: req.url, status: 200, payment_status: "admin" });
+}
+
+async function handleAdminRevokeKey(req, res, idStr) {
+  if (!requireMasterKey(req, res).ok) return;
+  const id = Number(idStr);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid_key_id", code: 400 }));
+    return;
+  }
+  const result = revokeApiKey(id);
+  const status = result.revoked ? 200 : 404;
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result));
+  log({
+    method: req.method,
+    path: req.url,
+    status,
+    payment_status: "admin",
+    extra: `revoke_id=${id} revoked=${result.revoked}`,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -590,6 +791,42 @@ async function router(req, res) {
     if (req.method === "POST" && path === "/scope-check") {
       return await handleScopeCheck(req, res);
     }
+
+    // Phase 6.0 — admin routes (master-key gated)
+    if (req.method === "POST" && path === "/admin/keys") {
+      return await handleAdminCreateKey(req, res);
+    }
+    if (req.method === "GET" && path === "/admin/keys") {
+      return await handleAdminListKeys(req, res);
+    }
+    const revokeMatch = path.match(/^\/admin\/keys\/(\d+)$/);
+    if (req.method === "DELETE" && revokeMatch) {
+      return await handleAdminRevokeKey(req, res, revokeMatch[1]);
+    }
+
+    // Phase 6.0 — auth ping (api-key gated, no business logic).
+    // Lets partners verify their key works without spending credits.
+    if (req.method === "GET" && path === "/auth-ping") {
+      const auth = await requireApiKey(req, res);
+      if (!auth.ok) return;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          key: { id: auth.key.id, name: auth.key.name, prefix: auth.key.prefix },
+          rate_limit: { per_minute: RATE_LIMIT_CONFIG.cap },
+        })
+      );
+      log({
+        method: req.method,
+        path,
+        status: 200,
+        payment_status: "authenticated",
+        extra: `key=${auth.key.prefix}`,
+      });
+      return;
+    }
+
     return await handleNotFound(req, res);
   } catch (err) {
     console.error(`[error] ${req.method} ${path}: ${err.stack || err.message}`);
