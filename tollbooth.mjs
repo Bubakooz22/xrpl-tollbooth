@@ -2,6 +2,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { scoreWallet } from './lib/wallet-risk.mjs';
 import { scoreContract } from './lib/contract-risk.mjs';
+import { simulateTransaction } from './lib/tx-simulate-risk.mjs';
 import { lookupScope, lookupScopeBatch } from './lib/scope-check.mjs';
 
 // ---------------------------------------------------------------------------
@@ -452,6 +453,58 @@ async function handleContractRisk(req, res) {
   log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
 }
 
+async function handleTxSimulateRisk(req, res) {
+  const ok = await requirePayment(req, res);
+  if (!ok) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    body = {};
+  }
+
+  const receipt = res.paymentReceipt;
+  const chain = typeof body.chain === 'string' ? body.chain.toLowerCase() : 'eth';
+  const from = body.from;
+  const to = body.to;
+  const data = body.data;
+  const value = body.value;
+
+  if (!from) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      error: "missing_from",
+      message: 'provide {"chain":"eth","from":"0x...","to":"0x...","data":"0x...","value":"0"} in request body'
+    }));
+    log({ method: req.method, path: req.url, status: 400, payment_status: "settled" });
+    return;
+  }
+
+  let responseBody;
+  let statusCode;
+  try {
+    const result = await simulateTransaction({ chain, from, to, data, value });
+    if (result && result.error) {
+      statusCode = 400;
+      responseBody = result;
+    } else {
+      statusCode = 200;
+      responseBody = result;
+    }
+  } catch (e) {
+    console.error('[tx-simulate-risk] handler error:', e);
+    statusCode = 500;
+    responseBody = { error: "internal_error", message: e.message };
+  }
+
+  const headers = { "Content-Type": "application/json" };
+  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  res.writeHead(statusCode, headers);
+  res.end(JSON.stringify(responseBody));
+  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
+}
+
 async function handleScopeCheck(req, res) {
   const ok = await requirePayment(req, res);
   if (!ok) return;
@@ -530,6 +583,9 @@ async function router(req, res) {
     }
     if (req.method === "POST" && path === "/contract-risk") {
       return await handleContractRisk(req, res);
+    }
+    if (req.method === "POST" && path === "/tx-simulate-risk") {
+      return await handleTxSimulateRisk(req, res);
     }
     if (req.method === "POST" && path === "/scope-check") {
       return await handleScopeCheck(req, res);
