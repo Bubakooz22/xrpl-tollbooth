@@ -22,7 +22,8 @@
 //   node --env-file=.env scripts/paid-call.mjs /contract-risk '{"address":"0xdac17f958d2ee523a2206206994597c13d831ec7","chain":"eth"}'
 //   node --env-file=.env scripts/paid-call.mjs /tx-simulate-risk ./fixtures/eth-transfer.json
 
-import { Client, Wallet, xrpToDrops } from "xrpl";
+import { Client, Wallet } from "xrpl";
+import { XRPLPresignedPaymentPayer } from "x402-xrpl";
 import fs from "node:fs";
 
 const TESTNET_URL = process.env.TESTNET_URL ?? "wss://s.altnet.rippletest.net:51233";
@@ -111,35 +112,24 @@ async function main() {
     process.exit(2);
   }
 
-  // --- Step 2: sign & submit XRPL Payment ---
+  // --- Step 2: sign XRPL Payment via x402-xrpl library ---
+  // The library handles: canonical JSON, invoiceId in payload, sha256 InvoiceID field,
+  // invoice memo, LastLedgerSequence math, and the exact envelope shape the facilitator expects.
   console.log(`[2/4] Signing XRPL Payment on ${TESTNET_URL}`);
   const wallet = Wallet.fromSeed(seed);
-  const tx = {
-    TransactionType: "Payment",
-    Account: wallet.address,
-    Destination: accepted.payTo,
-    Amount: String(accepted.amount), // XRP -> drops (already drops)
-    SourceTag: Number(accepted.extra?.sourceTag ?? 0),
-  };
-  // Optional InvoiceID: 32-byte hex. The 402 sends a UUID; hash it to 32 bytes.
-  if (accepted.extra?.invoiceId) {
-    const hash = await import("node:crypto").then(m =>
-      m.createHash("sha256").update(String(accepted.extra.invoiceId)).digest("hex").toUpperCase()
-    );
-    tx.InvoiceID = hash;
-  }
-
   const client = new Client(TESTNET_URL);
   await client.connect();
-  let signedTxBlob;
-  let signedHash;
+  let xPayment, signedHash;
   try {
-    const prepared = await client.autofill(tx);
-    const { result: lc } = await client.request({ command: "ledger_current" });
-    prepared.LastLedgerSequence = lc.ledger_current_index + LEDGER_BUFFER;
-    const signed = wallet.sign(prepared);
-    signedTxBlob = signed.tx_blob;
-    signedHash = signed.hash;
+    const payer = new XRPLPresignedPaymentPayer(
+      { wallet, wsUrl: TESTNET_URL, network: accepted.network },
+      { client },
+    );
+    const prepared = await payer.preparePayment(accepted);
+    xPayment = prepared.paymentHeader;
+    // Compute tx hash for logging only
+    const { hashes } = await import("xrpl");
+    signedHash = hashes?.hashSignedTx?.(prepared.signedTxBlob) ?? "(unknown)";
     console.log(`  signed. tx_hash=${signedHash} from=${wallet.address}`);
     console.log(`  (facilitator will submit — client does not pre-submit)`);
   } finally {
@@ -147,17 +137,7 @@ async function main() {
   }
 
   // --- Step 3: re-POST with X-PAYMENT header ---
-  // Envelope: v2 spec — root fields + `accepted` echoed back for tollbooth's
-  // buildFacilitatorPaymentRequirements, plus `payload.signedTxBlob` for the facilitator.
   console.log(`[3/4] Re-POST ${url} with X-PAYMENT`);
-  const payload = {
-    x402Version: 2,
-    scheme: accepted.scheme,
-    network: accepted.network,
-    accepted,
-    payload: { signedTxBlob },
-  };
-  const xPayment = b64encode(payload);
   const t0 = Date.now();
   const rFinal = await fetch(url, {
     method: "POST",
