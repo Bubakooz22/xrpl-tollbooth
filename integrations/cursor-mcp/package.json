@@ -1,0 +1,32 @@
+{
+  "name": "xrpl-tollbooth-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing the XRPL Toll Booth API (wallet risk, contract risk, tx simulation, scope check, PoC verification) to Cursor and other MCP hosts.",
+  "type": "module",
+  "bin": {
+    "xrpl-tollbooth-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["mcp", "model-context-protocol", "xrpl", "x402", "cursor", "security"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
