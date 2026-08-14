@@ -12,6 +12,12 @@ import {
   listApiKeys,
 } from './lib/api-keys.mjs';
 import { initRateLimiter, checkRateLimit } from './lib/rate-limit.mjs';
+import { verifyPoc } from './lib/verify-poc.mjs';
+
+// Phase 6.1 — per-route rate limit override.
+// /verify-poc spawns a forge subprocess + RPC fetch, so we cap tighter
+// than the global 60/min to protect the single-vCPU droplet.
+const VERIFY_POC_CAP_PER_MINUTE = Number(process.env.VERIFY_POC_CAP_PER_MINUTE || 10);
 
 // ---------------------------------------------------------------------------
 // x402 v2 compliant tollbooth merchant server.
@@ -622,7 +628,7 @@ function timingSafeEqualStr(a, b) {
  * Returns { ok: true, key } on success (caller should proceed with the
  * business logic) or { ok: false } if the response has already been sent.
  */
-async function requireApiKey(req, res) {
+async function requireApiKey(req, res, rateLimitOpts = {}) {
   const bearer = extractBearer(req);
   if (!bearer) {
     res.writeHead(401, {
@@ -645,7 +651,7 @@ async function requireApiKey(req, res) {
     return { ok: false };
   }
 
-  const rl = checkRateLimit(key.id);
+  const rl = checkRateLimit(key.id, rateLimitOpts);
   res.setHeader("X-RateLimit-Limit", String(rl.cap));
   res.setHeader("X-RateLimit-Remaining", String(Math.max(0, rl.remaining)));
   res.setHeader("X-RateLimit-Reset", String(rl.resetAt));
@@ -765,6 +771,81 @@ async function handleAdminRevokeKey(req, res, idStr) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 6.1 — /verify-poc (API-key gated, per-route rate limit)
+// ---------------------------------------------------------------------------
+
+async function handleVerifyPoc(req, res) {
+  const auth = await requireApiKey(req, res, {
+    cap: VERIFY_POC_CAP_PER_MINUTE,
+    bucket: "verify-poc",
+  });
+  if (!auth.ok) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (err) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid_json_body", code: 400 }));
+    log({
+      method: req.method,
+      path: req.url,
+      status: 400,
+      payment_status: "authenticated",
+      extra: `key=${auth.key.prefix} invalid_json`,
+    });
+    return;
+  }
+
+  const result = await verifyPoc({
+    test_file_b64: body?.test_file,
+    chain: body?.chain,
+    fork_block: body?.fork_block,
+    expected_result: body?.expected_result,
+    solidity_version: body?.solidity_version,
+    rpc_url: body?.rpc_url,
+  });
+
+  // Choose HTTP status from reason codes.
+  //   200 — grading completed (verified true or false, or POC_UNVERIFIED)
+  //   400 — bad input the caller can fix (missing/oversize/base64/chain/policy)
+  //   422 — compile / parse issue — caller's Solidity, not our fault
+  //   504 — timeout
+  //   502 — upstream (RPC) unreachable
+  //   500 — internal
+  const codes = new Set(result.reason_codes);
+  const status =
+    codes.has("UNSUPPORTED_CHAIN") ||
+    codes.has("INVALID_EXPECTED_RESULT") ||
+    codes.has("MISSING_TEST_FILE") ||
+    codes.has("TEST_FILE_TOO_LARGE") ||
+    codes.has("INVALID_BASE64") ||
+    codes.has("FFI_DISALLOWED") ||
+    codes.has("FS_WRITE_DISALLOWED") ||
+    codes.has("ENV_WRITE_DISALLOWED")
+      ? 400
+      : codes.has("COMPILE_ERROR") || codes.has("PARSE_FAILURE") || codes.has("NO_TESTS_FOUND")
+      ? 422
+      : codes.has("TIMEOUT")
+      ? 504
+      : codes.has("RPC_UNREACHABLE")
+      ? 502
+      : codes.has("INTERNAL_ERROR") || codes.has("FORGE_STD_BOOTSTRAP_FAILED")
+      ? 500
+      : 200;
+
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result));
+  log({
+    method: req.method,
+    path: req.url,
+    status,
+    payment_status: "authenticated",
+    extra: `key=${auth.key.prefix} verified=${result.verified} codes=${result.reason_codes.join(",")} duration=${result.duration_ms}ms`,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -802,6 +883,11 @@ async function router(req, res) {
     const revokeMatch = path.match(/^\/admin\/keys\/(\d+)$/);
     if (req.method === "DELETE" && revokeMatch) {
       return await handleAdminRevokeKey(req, res, revokeMatch[1]);
+    }
+
+    // Phase 6.1 — /verify-poc (API-key gated, tighter per-route cap)
+    if (req.method === "POST" && path === "/verify-poc") {
+      return await handleVerifyPoc(req, res);
     }
 
     // Phase 6.0 — auth ping (api-key gated, no business logic).
