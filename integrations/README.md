@@ -11,7 +11,7 @@ your project, install its deps, and go.
 | Claude Code skill | Anthropic Claude Code | Node (mjs) | ✅ Shipped | [`claude-code-skill/`](./claude-code-skill/) |
 | LangChain tools | LangChain | Python + JS | ✅ Shipped | [`langchain-example/`](./langchain-example/) |
 | ElizaOS plugin | ElizaOS | TypeScript | ✅ Shipped | [`elizaos-example/`](./elizaos-example/) |
-| Cursor MCP server | Cursor / MCP | TypeScript | 🔜 Planned | (Phase 7.2b) |
+| Cursor MCP server | Cursor / MCP | TypeScript | ✅ Shipped | [`cursor-mcp/`](./cursor-mcp/) |
 
 ## Shared design across integrations
 
@@ -66,9 +66,13 @@ All integrations read the same three env vars:
 - **Deploying an ElizaOS character?** →
   [`elizaos-example/`](./elizaos-example/). One `Plugin` export with four
   actions and auto-invoke via similes.
+- **Using Cursor as your editor?** →
+  [`cursor-mcp/`](./cursor-mcp/). Seven MCP tools over stdio; drop the
+  server into `.cursor/mcp.json` and Cursor spawns it on demand.
+  Also works with Claude Desktop and any other MCP host.
 - **Something else (LlamaIndex, AutoGen, custom)?** — Read
   `/.well-known/agent.json` yourself; wrap each endpoint as a tool in
-  your framework's idiom. The three shipped examples show the pattern.
+  your framework's idiom. The four shipped examples show the pattern.
 
 ## Contributing
 
