@@ -132,28 +132,31 @@ async function main() {
   const client = new Client(TESTNET_URL);
   await client.connect();
   let signedTxBlob;
+  let signedHash;
   try {
     const prepared = await client.autofill(tx);
     const { result: lc } = await client.request({ command: "ledger_current" });
     prepared.LastLedgerSequence = lc.ledger_current_index + LEDGER_BUFFER;
     const signed = wallet.sign(prepared);
     signedTxBlob = signed.tx_blob;
-    console.log(`  signed. tx_hash=${signed.hash} from=${wallet.address}`);
-    console.log(`  submitting & waiting for validation...`);
-    const submitted = await client.submitAndWait(signed.tx_blob);
-    const result = submitted.result.meta?.TransactionResult;
-    if (result !== "tesSUCCESS") {
-      console.error(`  submit failed: ${result}`);
-      process.exit(3);
-    }
-    console.log(`  validated. ledger=${submitted.result.ledger_index} result=${result}`);
+    signedHash = signed.hash;
+    console.log(`  signed. tx_hash=${signedHash} from=${wallet.address}`);
+    console.log(`  (facilitator will submit — client does not pre-submit)`);
   } finally {
     await client.disconnect();
   }
 
   // --- Step 3: re-POST with X-PAYMENT header ---
+  // Envelope: v2 spec — root fields + `accepted` echoed back for tollbooth's
+  // buildFacilitatorPaymentRequirements, plus `payload.signedTxBlob` for the facilitator.
   console.log(`[3/4] Re-POST ${url} with X-PAYMENT`);
-  const payload = { accepted, payload: { signedTxBlob } };
+  const payload = {
+    x402Version: 2,
+    scheme: accepted.scheme,
+    network: accepted.network,
+    accepted,
+    payload: { signedTxBlob },
+  };
   const xPayment = b64encode(payload);
   const t0 = Date.now();
   const rFinal = await fetch(url, {
