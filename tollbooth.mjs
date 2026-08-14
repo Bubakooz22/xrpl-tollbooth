@@ -1,5 +1,6 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import { scoreWallet } from './lib/wallet-risk.mjs';
 import { scoreContract } from './lib/contract-risk.mjs';
 import { simulateTransaction } from './lib/tx-simulate-risk.mjs';
@@ -18,6 +19,28 @@ import { verifyPoc } from './lib/verify-poc.mjs';
 // /verify-poc spawns a forge subprocess + RPC fetch, so we cap tighter
 // than the global 60/min to protect the single-vCPU droplet.
 const VERIFY_POC_CAP_PER_MINUTE = Number(process.env.VERIFY_POC_CAP_PER_MINUTE || 10);
+
+// Phase 7.1 — static discovery documents (OpenAPI 3.1 + agent manifest).
+// Loaded once at boot. ETag = sha256 of the raw bytes. Served with a short
+// public max-age so CDNs / agent frameworks can cache while iterating.
+const DISCOVERY_DOCS = loadDiscoveryDocs();
+
+function loadDiscoveryDocs() {
+  const docs = {};
+  for (const [key, path] of [
+    ["openapi", "./.well-known/openapi.json"],
+    ["agent", "./.well-known/agent.json"],
+  ]) {
+    try {
+      const raw = readFileSync(path);
+      const etag = 'W/"' + crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16) + '"';
+      docs[key] = { body: raw, etag, contentType: "application/json; charset=utf-8" };
+    } catch (err) {
+      console.warn(`[startup] discovery doc missing: ${path} (${err.message})`);
+    }
+  }
+  return docs;
+}
 
 // ---------------------------------------------------------------------------
 // x402 v2 compliant tollbooth merchant server.
@@ -372,6 +395,31 @@ async function handleHealth(req, res) {
   const body = { ok: true, facilitator: FACILITATOR };
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
+  log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
+}
+
+async function handleDiscoveryDoc(req, res, key) {
+  const doc = DISCOVERY_DOCS[key];
+  if (!doc) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: `discovery_doc_missing:${key}`, code: 503 }));
+    log({ method: req.method, path: req.url, status: 503, payment_status: "unpaid" });
+    return;
+  }
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (ifNoneMatch && ifNoneMatch === doc.etag) {
+    res.writeHead(304, { ETag: doc.etag, "Cache-Control": "public, max-age=300" });
+    res.end();
+    log({ method: req.method, path: req.url, status: 304, payment_status: "unpaid" });
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": doc.contentType,
+    "Cache-Control": "public, max-age=300",
+    ETag: doc.etag,
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end(doc.body);
   log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
 }
 
@@ -857,6 +905,14 @@ async function router(req, res) {
     if (req.method === "GET" && path === "/health") {
       return await handleHealth(req, res);
     }
+    if (req.method === "GET" && path === "/.well-known/openapi.json") {
+      return await handleDiscoveryDoc(req, res, "openapi");
+    }
+
+    if (req.method === "GET" && path === "/.well-known/agent.json") {
+      return await handleDiscoveryDoc(req, res, "agent");
+    }
+
     if (req.method === "GET" && path === "/.well-known/x402") {
       return await handleDiscovery(req, res);
     }

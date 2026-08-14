@@ -1,0 +1,491 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "XRPL Toll Booth \u2014 Cybersecurity API",
+    "summary": "Pay-per-call cybersecurity endpoints for Web3 agents and auditors, settled on the XRP Ledger via x402.",
+    "description": "The first cybersecurity toll booth on XRPL. Two auth models coexist:\n\n1. **x402 pay-per-call** on `/wallet-risk`, `/contract-risk`, `/tx-simulate-risk`, `/scope-check`. Each call costs a small amount (1000 drops XRP or 0.002 RLUSD) settled on-chain via the x402 facilitator before the endpoint executes.\n2. **API-key Bearer auth** on `/verify-poc` and `/auth-ping`. In closed beta; contact the maintainer for a key.\n\nAll endpoints return a stable `reason_codes[]` array so downstream agents can grade findings without parsing prose.",
+    "version": "0.6.1",
+    "contact": {
+      "name": "transactionguardian2025",
+      "url": "https://github.com/Bubakooz22/xrpl-tollbooth/issues"
+    },
+    "license": {
+      "name": "ISC",
+      "identifier": "ISC"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://45.55.48.101:8787",
+      "description": "Droplet 45 \u2014 staging tollbooth on XRPL testnet"
+    }
+  ],
+  "tags": [
+    { "name": "discovery",   "description": "Unauthenticated metadata endpoints." },
+    { "name": "risk",        "description": "x402-paid: wallet, contract, and transaction risk scoring." },
+    { "name": "scope",       "description": "x402-paid: bug bounty scope lookup." },
+    { "name": "verify",      "description": "API-key: Foundry PoC verification (closed beta)." },
+    { "name": "admin",       "description": "Master-key: API key CRUD." }
+  ],
+  "components": {
+    "securitySchemes": {
+      "X402XRPL": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "PAYMENT-SIGNATURE",
+        "description": "Base64-encoded x402 payment payload settled on XRPL. On first request the server responds 402 with a `PAYMENT-REQUIRED` header describing accepts (XRP drops or RLUSD). Sign the returned requirements with your XRPL key and retry with `PAYMENT-SIGNATURE`. See `docs/x402-spec-notes.md`."
+      },
+      "BearerApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "tb_live_<32hex>",
+        "description": "API key issued by the tollbooth admin. Format: `tb_live_` followed by 32 lowercase hex chars. In closed beta \u2014 contact maintainer."
+      },
+      "MasterKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "hex-64",
+        "description": "Server master key. Used only by the operator to CRUD API keys via `/admin/keys`."
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "facilitator": {
+            "type": "object",
+            "properties": {
+              "scheme":      { "type": "string", "example": "xrpl-testnet-native" },
+              "network":     { "type": "string", "example": "xrpl-testnet" },
+              "x402Version": { "type": "integer", "example": 2 }
+            }
+          }
+        },
+        "required": ["ok"]
+      },
+      "PaymentRequired402": {
+        "description": "Body returned with HTTP 402 when a payment header is missing.",
+        "type": "object",
+        "properties": {
+          "x402Version": { "type": "integer", "const": 2 },
+          "resource": {
+            "type": "object",
+            "properties": { "url": { "type": "string", "format": "uri" } }
+          },
+          "accepts": {
+            "type": "array",
+            "description": "One entry per accepted asset. Currently: XRP drops and RLUSD IOU.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "scheme":      { "type": "string", "example": "xrpl-testnet-native" },
+                "network":     { "type": "string", "example": "xrpl-testnet" },
+                "asset":       { "type": "string", "description": "'native' for XRP, or 40-hex currency code for IOU." },
+                "issuer":      { "type": "string", "description": "IOU issuer address (present for RLUSD accepts entry only)." },
+                "amount":      { "type": "string", "description": "Amount in drops for XRP, or decimal string for IOU." },
+                "payTo":       { "type": "string", "example": "rHwXHECZUzumTAVACsR6N6pRHtvpTUEfzf" },
+                "invoiceId":   { "type": "string", "format": "uuid" },
+                "maxTimeoutSeconds": { "type": "integer", "example": 300 },
+                "x402Version": { "type": "integer", "example": 2 }
+              }
+            }
+          }
+        }
+      },
+      "ReasonCode": {
+        "type": "string",
+        "description": "Stable machine-readable code. See per-endpoint docs for the full list."
+      },
+      "WalletRiskRequest": {
+        "type": "object",
+        "required": ["chain", "address"],
+        "properties": {
+          "chain":   { "type": "string", "enum": ["eth", "xrpl", "sol"] },
+          "address": { "type": "string", "description": "Chain-native address." }
+        }
+      },
+      "WalletRiskResponse": {
+        "type": "object",
+        "properties": {
+          "chain":         { "type": "string" },
+          "address":       { "type": "string" },
+          "risk_score":    { "type": "integer", "minimum": 0, "maximum": 100 },
+          "risk_level":    { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "reason_codes":  { "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
+          "sources_checked": { "type": "array", "items": { "type": "string" } },
+          "cached":        { "type": "boolean" },
+          "cache_ttl_seconds": { "type": "integer" }
+        }
+      },
+      "ContractRiskRequest": {
+        "type": "object",
+        "required": ["chain", "address"],
+        "properties": {
+          "chain":   { "type": "string", "enum": ["eth"] },
+          "address": { "type": "string", "description": "20-byte hex address." }
+        }
+      },
+      "ContractRiskResponse": {
+        "type": "object",
+        "properties": {
+          "chain":        { "type": "string" },
+          "address":      { "type": "string" },
+          "risk_score":   { "type": "integer" },
+          "risk_level":   { "type": "string" },
+          "reason_codes": { "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
+          "known_exploit_match": {
+            "type": "object",
+            "description": "Populated if the address matches a curated exploit database entry.",
+            "properties": {
+              "name": { "type": "string" },
+              "url":  { "type": "string" }
+            }
+          }
+        }
+      },
+      "TxSimulateRiskRequest": {
+        "type": "object",
+        "required": ["chain", "from", "to"],
+        "properties": {
+          "chain": { "type": "string", "enum": ["eth"] },
+          "from":  { "type": "string", "description": "Sender address. Impersonated in the anvil fork." },
+          "to":    { "type": "string" },
+          "data":  { "type": "string", "description": "Calldata hex, with or without 0x." },
+          "value": { "type": "string", "description": "Wei as decimal string. Defaults to 0." }
+        }
+      },
+      "TxSimulateRiskResponse": {
+        "type": "object",
+        "properties": {
+          "chain":       { "type": "string" },
+          "from":        { "type": "string" },
+          "to":          { "type": "string" },
+          "reverted":    { "type": "boolean" },
+          "gas_used":    { "type": "integer" },
+          "risk_score":  { "type": "integer" },
+          "risk_level":  { "type": "string" },
+          "reason_codes":{ "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
+          "trace_head":  { "type": "string", "description": "First ~1500 chars of cast run --quick output." },
+          "block_number":{ "type": "integer" },
+          "duration_ms": { "type": "integer" }
+        }
+      },
+      "ScopeCheckRequest": {
+        "type": "object",
+        "required": ["address"],
+        "properties": {
+          "address": { "type": "string" },
+          "chain":   { "type": "string" }
+        }
+      },
+      "ScopeCheckResponse": {
+        "type": "object",
+        "properties": {
+          "address":     { "type": "string" },
+          "in_scope":    { "type": "boolean" },
+          "programs":    {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "platform":  { "type": "string", "example": "immunefi" },
+                "name":      { "type": "string" },
+                "url":       { "type": "string" },
+                "max_bounty":{ "type": "string" }
+              }
+            }
+          },
+          "generated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "VerifyPocRequest": {
+        "type": "object",
+        "required": ["test_file"],
+        "properties": {
+          "test_file":       { "type": "string", "description": "Base64-encoded Foundry .t.sol source. Max 128 KB decoded." },
+          "chain":           { "type": "string", "enum": ["eth"], "default": "eth" },
+          "fork_block":      { "type": "integer", "description": "Block number to fork at. Latest if omitted." },
+          "expected_result": { "type": "string", "enum": ["pass", "revert"], "default": "pass" },
+          "solidity_version":{ "type": "string", "description": "Ignored today \u2014 forge picks from pragma." },
+          "rpc_url":         { "type": "string", "format": "uri", "description": "Override upstream RPC. Not recommended in production." }
+        }
+      },
+      "VerifyPocResponse": {
+        "type": "object",
+        "properties": {
+          "verified":     { "type": "boolean" },
+          "expected":     { "type": "string" },
+          "actual":       { "type": ["string", "null"] },
+          "test_name":    { "type": ["string", "null"] },
+          "gas_used":     { "type": ["integer", "null"] },
+          "logs":         { "type": "array", "items": { "type": "string" } },
+          "traces_head":  { "type": ["string", "null"] },
+          "fork_block":   { "type": ["integer", "null"] },
+          "duration_ms":  { "type": "integer" },
+          "reason_codes": { "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
+          "notes":        { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "AuthPingResponse": {
+        "type": "object",
+        "properties": {
+          "ok":         { "type": "boolean" },
+          "key_prefix": { "type": "string", "example": "tb_live_d169" },
+          "key_id":     { "type": "integer" }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id":         { "type": "integer" },
+          "name":       { "type": "string" },
+          "prefix":     { "type": "string" },
+          "key":        { "type": "string", "description": "Full raw key. Only returned once on create." },
+          "created_at": { "type": "integer", "description": "Unix seconds." },
+          "revoked_at": { "type": ["integer", "null"] }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "code":  { "type": "integer" }
+        }
+      }
+    },
+    "responses": {
+      "PaymentRequired": {
+        "description": "402 \u2014 payment required. Body describes accepted assets.",
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "schema": { "type": "string" },
+            "description": "Base64 of the same body. x402 v2 compliance."
+          }
+        },
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequired402" } }
+        }
+      },
+      "Unauthorized": {
+        "description": "401 \u2014 missing or invalid Bearer key.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "RateLimited": {
+        "description": "429 \u2014 per-key rate limit hit.",
+        "headers": {
+          "Retry-After":         { "schema": { "type": "integer" } },
+          "X-RateLimit-Limit":   { "schema": { "type": "integer" } },
+          "X-RateLimit-Remaining": { "schema": { "type": "integer" } },
+          "X-RateLimit-Reset":   { "schema": { "type": "integer" } }
+        },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["discovery"],
+        "summary": "Liveness probe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+          }
+        }
+      }
+    },
+    "/.well-known/openapi.json": {
+      "get": {
+        "tags": ["discovery"],
+        "summary": "This OpenAPI 3.1 spec.",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": {} } }
+        }
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "tags": ["discovery"],
+        "summary": "Agent manifest \u2014 x402-compatible discovery.",
+        "description": "Machine-readable manifest for agent frameworks. Lists each endpoint, its auth model, pricing, and reason-code vocabulary.",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": {} } }
+        }
+      }
+    },
+    "/.well-known/x402": {
+      "get": {
+        "tags": ["discovery"],
+        "summary": "Sample x402 accepts \u2014 legacy discovery.",
+        "description": "Returns a sample `accepts[]` at current TOLL_PRICE_DROPS. Kept for backward compatibility; new integrations should read `/.well-known/agent.json` or `/.well-known/openapi.json`.",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": {} } }
+        }
+      }
+    },
+    "/wallet-risk": {
+      "post": {
+        "tags": ["risk"],
+        "summary": "Score a wallet address for known risk signals.",
+        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Checks OFAC (100 ETH + 1 XRPL + 4 SOL entries) and a curated scam-address list (652 ETH entries). Cached: no.",
+        "security": [{ "X402XRPL": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletRiskRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Risk assessment.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletRiskResponse" } } }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" }
+        }
+      }
+    },
+    "/contract-risk": {
+      "post": {
+        "tags": ["risk"],
+        "summary": "Score a smart-contract address for known-exploit and heuristic risk.",
+        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Matches against a curated exploit database (5 entries at time of writing) plus source-code heuristics when Etherscan key is configured.",
+        "security": [{ "X402XRPL": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContractRiskRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Risk assessment.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContractRiskResponse" } } }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" }
+        }
+      }
+    },
+    "/tx-simulate-risk": {
+      "post": {
+        "tags": ["risk"],
+        "summary": "Simulate an Ethereum transaction on a mainnet fork and grade the outcome.",
+        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Spins up an ephemeral anvil fork, impersonates `from`, sets balance, executes, mines a block, parses receipt logs and traces. Detects unlimited approvals, ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token outbound flows.",
+        "security": [{ "X402XRPL": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TxSimulateRiskRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Simulation result.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TxSimulateRiskResponse" } } }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" }
+        }
+      }
+    },
+    "/scope-check": {
+      "post": {
+        "tags": ["scope"],
+        "summary": "Look up whether an address is in scope of any known bug bounty program.",
+        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Refreshed daily by systemd; source-of-truth JSON committed to the repo. Currently 15 programs across 109 contracts.",
+        "security": [{ "X402XRPL": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScopeCheckRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Scope match result.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScopeCheckResponse" } } }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" }
+        }
+      }
+    },
+    "/verify-poc": {
+      "post": {
+        "tags": ["verify"],
+        "summary": "Grade a Foundry PoC against an Ethereum mainnet fork.",
+        "description": "Closed beta \u2014 API key required. Rate limit: 10/min per key on a dedicated bucket. Runs `forge test --fork-url --json` in an ephemeral `/tmp/verify-poc-<uuid>/` sandbox with `ffi=false` pinned. Single-file only; multi-file support arrives in Phase 6.2.",
+        "security": [{ "BearerApiKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Grading complete (`verified` true or false).",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } }
+          },
+          "400": { "description": "Bad input (missing/oversize/base64/policy).",   "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "description": "Compile / parse / no-tests failure.",           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "502": { "description": "Upstream RPC unreachable.",                     "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "504": { "description": "Forge subprocess exceeded 120s wall clock.",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } }
+        }
+      }
+    },
+    "/auth-ping": {
+      "get": {
+        "tags": ["verify"],
+        "summary": "Verify a Bearer API key works.",
+        "security": [{ "BearerApiKey": [] }],
+        "responses": {
+          "200": {
+            "description": "Key valid.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthPingResponse" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/admin/keys": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Create a new API key.",
+        "security": [{ "MasterKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": { "name": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created. `key` returned once.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiKey" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "get": {
+        "tags": ["admin"],
+        "summary": "List all API keys (hashed, no raw values).",
+        "security": [{ "MasterKey": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ApiKey" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/admin/keys/{id}": {
+      "delete": {
+        "tags": ["admin"],
+        "summary": "Revoke an API key by ID.",
+        "security": [{ "MasterKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Revoked.", "content": { "application/json": { "schema": { "type": "object", "properties": { "revoked": { "type": "boolean" }, "id": { "type": "integer" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  }
+}
