@@ -1,0 +1,17 @@
+{
+  "name": "xrpl-tollbooth-langchain-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LangChain.js integration example for the XRPL Toll Booth API",
+  "scripts": {
+    "smoke": "node tollboothTools.mjs",
+    "agent": "node exampleAgent.mjs"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
+    "langchain": "^0.3.0",
+    "zod": "^3.23.0"
+  }
+}

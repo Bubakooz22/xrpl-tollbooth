@@ -1,0 +1,30 @@
+{
+  "name": "@xrpl-tollbooth/elizaos-plugin",
+  "version": "0.1.0",
+  "description": "ElizaOS plugin for the XRPL Toll Booth API (wallet risk, contract risk, scope check, PoC verify)",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "*"
+  },
+  "devDependencies": {
+    "@elizaos/core": "*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "keywords": ["elizaos", "plugin", "xrpl", "web3", "security", "x402"],
+  "license": "MIT"
+}
