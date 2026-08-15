@@ -1,0 +1,18 @@
+# systemd timer — 30-minute heartbeat cadence
+#
+# Matches the "every 30 min" cadence Moltbook's heartbeat.md recommends.
+# First run: 5 min after boot. Then every 30 min, with a random jitter of
+# up to 90 seconds to avoid stampeding herd if many tollbooth-style agents
+# check in on the same schedule.
+
+[Unit]
+Description=Trigger tollbooth-moltbook.service every 30 min
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=90
+Unit=tollbooth-moltbook.service
+
+[Install]
+WantedBy=timers.target
