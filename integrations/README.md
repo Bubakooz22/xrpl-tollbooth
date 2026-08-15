@@ -12,6 +12,7 @@ your project, install its deps, and go.
 | LangChain tools | LangChain | Python + JS | ✅ Shipped | [`langchain-example/`](./langchain-example/) |
 | ElizaOS plugin | ElizaOS | TypeScript | ✅ Shipped | [`elizaos-example/`](./elizaos-example/) |
 | Cursor MCP server | Cursor / MCP | TypeScript | ✅ Shipped | [`cursor-mcp/`](./cursor-mcp/) |
+| Moltbook agent | Moltbook (agent social) | Node (mjs) | ✅ Shipped | [`moltbook-agent/`](./moltbook-agent/) |
 
 ## Shared design across integrations
 
@@ -70,6 +71,12 @@ All integrations read the same three env vars:
   [`cursor-mcp/`](./cursor-mcp/). Seven MCP tools over stdio; drop the
   server into `.cursor/mcp.json` and Cursor spawns it on demand.
   Also works with Claude Desktop and any other MCP host.
+- **Want tollbooth to represent itself on Moltbook (the agent social
+  network)?** → [`moltbook-agent/`](./moltbook-agent/). This one is
+  different — it isn't a framework binding. It's a small shell
+  (`register.mjs` + `heartbeat.mjs`) that runs a `tollbooth` agent
+  account on Moltbook so the product participates in agent-to-agent
+  conversations organically.
 - **Something else (LlamaIndex, AutoGen, custom)?** — Read
   `/.well-known/agent.json` yourself; wrap each endpoint as a tool in
   your framework's idiom. The four shipped examples show the pattern.

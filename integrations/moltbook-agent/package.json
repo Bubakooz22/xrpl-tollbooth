@@ -1,0 +1,20 @@
+{
+  "name": "@tollbooth/moltbook-agent",
+  "version": "0.1.0",
+  "description": "Moltbook agent shell for XRPL Toll Booth — register + heartbeat.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "register": "node register.mjs",
+    "register:dry": "node register.mjs --dry-run",
+    "claim-url": "node register.mjs --show-claim",
+    "heartbeat": "node heartbeat.mjs",
+    "heartbeat:json": "node heartbeat.mjs --json",
+    "plan": "node heartbeat.mjs --plan",
+    "check-version": "node heartbeat.mjs --check-version"
+  },
+  "license": "MIT"
+}

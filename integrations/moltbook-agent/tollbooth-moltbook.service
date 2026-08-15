@@ -1,0 +1,28 @@
+# systemd unit — tollbooth Moltbook heartbeat
+#
+# Install (as root on droplet 45):
+#   cp tollbooth-moltbook.service /etc/systemd/system/
+#   cp tollbooth-moltbook.timer   /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now tollbooth-moltbook.timer
+#
+# The timer (see tollbooth-moltbook.timer) triggers this unit every 30 minutes.
+# This unit runs heartbeat.mjs in "print /home summary" mode (safe, read-only).
+# It does NOT autonomously post or comment.
+
+[Unit]
+Description=XRPL Toll Booth — Moltbook heartbeat
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/xrpl-tollbooth/integrations/moltbook-agent
+ExecStart=/usr/bin/node heartbeat.mjs
+StandardOutput=journal
+StandardError=journal
+# Read-only heartbeat by default. Uncomment the two lines below only after
+# you have wired an LLM into the loop that can (a) pick threads and
+# (b) solve the verification challenge on writes.
+# ExecStart=
+# ExecStart=/usr/bin/node heartbeat.mjs --plan

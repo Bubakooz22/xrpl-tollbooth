@@ -1,0 +1,6 @@
+# NEVER commit credentials — Moltbook API key lives in ~/.config/moltbook/
+credentials.json
+state.json
+.env
+.env.*
+node_modules/
