@@ -89,7 +89,7 @@ const PORT = Number(process.env.PORT);
 const SOURCE_TAG = Number(process.env.TOLL_SOURCE_TAG ?? 804681468);
 
 // --- RLUSD (Ripple USD) support -------------------------------------------------
-// Testnet RLUSD issuer per Ripple docs (docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl)
+// Mainnet RLUSD issuer per Ripple docs (docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl)
 // and confirmed via t54's XRPL x402 facilitator scheme docs (xrpl-x402.t54.ai/docs/xrpl-scheme).
 const RLUSD_ISSUER = process.env.RLUSD_ISSUER || 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De';
 // "RLUSD" ASCII right-padded to a 40-hex-char currency code (XRPL non-standard currency code format).
