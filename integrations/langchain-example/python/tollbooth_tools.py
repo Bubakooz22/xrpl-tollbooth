@@ -127,7 +127,7 @@ def _call_x402(path: str, body: dict) -> dict:
 def wallet_risk(chain: str, address: str) -> dict:
     """Score a wallet address for OFAC + curated scam-list membership.
 
-    Costs 1000 drops XRP (~$0.0005) per call, settled on-chain via x402.
+    Costs 5000 drops XRP (~$0.0025) per call, settled on-chain via x402.
     Supports chain values 'eth', 'xrpl', 'sol'. Returns a dict with
     risk_level ('low'|'medium'|'high'|'critical'), score, reason_codes[],
     sources_checked[]. Reason codes: OFAC_SANCTIONED, SCAM_LIST_HIT,
@@ -141,7 +141,7 @@ def contract_risk(chain: str, address: str) -> dict:
     """Score a smart-contract address for known-exploit database matches
     and source-code heuristics.
 
-    Costs 1000 drops XRP per call via x402. Chain 'eth' only today.
+    Costs 5000 drops XRP per call via x402. Chain 'eth' only today.
     Returns risk_level, reason_codes[], and known_exploit_match{name,url}
     when the address is in the curated exploit database. Codes:
     KNOWN_EXPLOIT_MATCH (refuse), SELFDESTRUCT_PRESENT, DELEGATECALL_PRESENT,
@@ -160,7 +160,7 @@ def tx_simulate_risk(
 ) -> dict:
     """Simulate an Ethereum transaction on a mainnet fork and grade the outcome.
 
-    Costs 1000 drops XRP per call via x402. Detects unlimited ERC-20 approvals,
+    Costs 5000 drops XRP per call via x402. Detects unlimited ERC-20 approvals,
     ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token
     outbound flows. Chain 'eth' only. `data` is hex calldata (with or without
     0x). `value` is wei as a decimal string.
@@ -179,7 +179,7 @@ def tx_simulate_risk(
 def scope_check(address: str, chain: str = "eth") -> dict:
     """Check whether an address is in scope of any active bug bounty program.
 
-    Costs 1000 drops XRP per call via x402. Returns in_scope (bool) plus
+    Costs 5000 drops XRP per call via x402. Returns in_scope (bool) plus
     programs[] with platform, name, url, max_bounty. Current coverage:
     15 programs, 109 contracts, refreshed daily. Absence of a match is
     not proof — the target may just not be tracked.

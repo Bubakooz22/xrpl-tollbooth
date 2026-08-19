@@ -32,7 +32,7 @@ Severity → score mapping: `critical=100`, `high=40`, `medium=20`, `low=5`. Tot
 |---|---|---|---|---|
 | eth | ✅ | ✅ (MEW) | Etherscan V2 — nonce, first-tx age, Tornado hits | Full coverage |
 | base | ✅ (via eth list) | ✅ (via MEW list) | public Base RPC — nonce only | v0: no first-tx-age, no mixer coverage |
-| xrpl | ✅ | — | XRPL testnet RPC — sequence, first-tx age | Testnet ledger |
+| xrpl | ✅ | — | XRPL mainnet RPC — sequence, first-tx age | Mainnet ledger |
 | sol | ✅ | — | Solana mainnet RPC — sigs, first-tx age, program owner | Paginated (5×1000 sigs) |
 
 ## Sources tags (`sources_checked` field)

@@ -1,6 +1,6 @@
 # xrpl-tollbooth
 
-A payment-gated "tollbooth" on the XRP Ledger (testnet). Clients pay XRP to a
+A payment-gated "tollbooth" on the XRP Ledger (mainnet). Clients pay XRP to a
 collection address with a unique DestinationTag, then redeem that tag for a
 short-lived access token once the payment is validated on-ledger.
 
@@ -8,7 +8,7 @@ short-lived access token once the payment is validated on-ledger.
 
 1. Install deps: `npm install`
 2. Copy `.env.example` to `.env` and fill in your values:
-   - `XRPL_SEED` - testnet wallet seed (keep secret)
+   - `XRPL_SEED` - mainnet wallet seed (keep secret)
    - `TOLL_DESTINATION` - address that collects tolls
    - `TOLL_PRICE_XRP` - price to pass (default 20)
    - `PORT` - HTTP port (default 8787)
@@ -18,7 +18,7 @@ short-lived access token once the payment is validated on-ledger.
 ## Scripts
 
 - `npm start` - run the tollbooth server (`node --env-file=.env tollbooth.mjs`)
-- `npm run pay <destination> <amountXrp> [destTag]` - send a testnet payment
+- `npm run pay <destination> <amountXrp> [destTag]` - send an XRPL payment
 
 ## Endpoints
 
@@ -40,4 +40,4 @@ short-lived access token once the payment is validated on-ledger.
 (~20 min) explicitly after autofill, avoiding `tefMAX_LEDGER` expiry during
 confirmation round-trips.
 
-Testnet only. Not audited for production use.
+Mainnet live at https://api.txnguardian.com. Live but pre-audit — use small amounts.

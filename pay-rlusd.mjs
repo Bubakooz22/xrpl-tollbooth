@@ -30,7 +30,7 @@ const rlusdSelector = (accepts, networkFilter, schemeFilter, maxValue) => {
 
 const fetchPaid = x402Fetch({
   wallet,
-  network: 'xrpl:1',
+  network: process.env.XRPL_NETWORK || 'xrpl:0',
   paymentRequirementsSelector: rlusdSelector,
 });
 
@@ -46,7 +46,7 @@ if (paymentResp) {
   if (txHash) {
     console.log('PAID REQUEST SUCCEEDED');
     console.log('tx=' + txHash);
-    console.log('explorer=https://testnet.xrpl.org/transactions/' + txHash);
+    console.log('explorer=https://xrpscan.com/tx/' + txHash);
   }
 } else {
   console.log('NO PAYMENT-RESPONSE HEADER FOUND');

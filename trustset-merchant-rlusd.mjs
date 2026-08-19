@@ -1,10 +1,10 @@
 import { Client, Wallet } from 'xrpl';
 
 const seed = process.env.XRPL_SEED;
-const issuer = process.env.RLUSD_ISSUER || 'rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV';
+const issuer = process.env.RLUSD_ISSUER || 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De';
 const currency = '524C555344000000000000000000000000000000';
 const limit = process.env.RLUSD_TRUST_LIMIT || '1000000';
-const rpcUrl = process.env.XRPL_RPC_URL || 'wss://s.altnet.rippletest.net:51233';
+const rpcUrl = process.env.XRPL_RPC_URL || 'wss://xrplcluster.com';
 
 if (!seed) { console.error('XRPL_SEED missing'); process.exit(1); }
 

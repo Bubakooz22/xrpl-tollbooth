@@ -5,7 +5,7 @@ description: Pay-per-call cybersecurity checks on XRPL. Use when the user wants 
 
 # XRPL Toll Booth â€” Cybersecurity API skill
 
-You have access to a live tollbooth on this droplet that charges 1000 drops XRP per call (or 0.002 RLUSD) settled on-chain via the x402 protocol, plus two API-key-gated endpoints in closed beta. Every helper handles auth and payment automatically.
+You have access to a live tollbooth on this droplet that charges 5000 drops XRP per call (or 0.002 RLUSD) settled on-chain via the x402 protocol, plus two API-key-gated endpoints in closed beta. Every helper handles auth and payment automatically.
 
 ## Before you call anything
 
@@ -21,10 +21,10 @@ The manifest source of truth is `http://127.0.0.1:8787/.well-known/agent.json` â
 
 | User intent | Helper | Auth | Cost |
 |---|---|---|---|
-| Check if an address is sanctioned or on a scam list | `walletRisk` | x402 | 1000 drops |
-| Score a smart contract for known-exploit match / source heuristics | `contractRisk` | x402 | 1000 drops |
-| Simulate an ETH transaction and detect malicious side effects | `txSimulateRisk` | x402 | 1000 drops |
-| Check whether an address is in any bug bounty program's scope | `scopeCheck` | x402 | 1000 drops |
+| Check if an address is sanctioned or on a scam list | `walletRisk` | x402 | 5000 drops |
+| Score a smart contract for known-exploit match / source heuristics | `contractRisk` | x402 | 5000 drops |
+| Simulate an ETH transaction and detect malicious side effects | `txSimulateRisk` | x402 | 5000 drops |
+| Check whether an address is in any bug bounty program's scope | `scopeCheck` | x402 | 5000 drops |
 | Grade a Foundry `.t.sol` PoC against a mainnet fork | `verifyPoc` | API key | closed beta |
 | Confirm the API key works | `authPing` | API key | closed beta |
 
@@ -64,7 +64,7 @@ Key codes to know:
 
 ## Payment mechanics
 
-The x402 endpoints charge 1000 drops (~$0.0005) per call. Payments settle on XRPL testnet via `https://xrpl-facilitator-testnet.t54.ai`. The payer wallet is configured on this droplet already; you do not need to construct payment payloads yourself. Just call the helper.
+The x402 endpoints charge 5000 drops (~$0.0025) per call. Payments settle on XRPL mainnet via `https://xrpl-facilitator-mainnet.t54.ai`. The payer wallet is configured on this droplet already; you do not need to construct payment payloads yourself. Just call the helper.
 
 The two API-key endpoints (`verifyPoc`, `authPing`) use `Authorization: Bearer $TOLLBOOTH_API_KEY`. The key on this droplet is `tb_live_d169...` (see `.env`).
 

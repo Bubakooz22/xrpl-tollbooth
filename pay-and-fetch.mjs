@@ -1,25 +1,27 @@
 import { Wallet } from 'xrpl';
 import { x402Fetch } from 'x402-xrpl';
 
-const seed = process.env.PAYER_SEED;
-const url = (process.env.TOLLBOOTH_URL || 'http://localhost:8787') + (process.env.TARGET_PATH || '/wallet-risk');
-const body = process.env.REQUEST_BODY || '{"address":"rTest"}';
+const seed = process.env.XRPL_BUYER_SEED || process.env.PAYER_SEED;
+const url  = (process.env.TOLLBOOTH_URL || 'https://api.txnguardian.com')
+           + (process.env.TARGET_PATH   || '/wallet-risk');
+const body = process.env.REQUEST_BODY   || '{"address":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh","chain":"xrpl"}';
+const network = process.env.XRPL_NETWORK || 'xrpl:0'; // mainnet default; override to xrpl:1 for testnet
 
-if (!seed) { console.error('PAYER_SEED missing'); process.exit(1); }
+if (!seed) { console.error('XRPL_BUYER_SEED / PAYER_SEED missing'); process.exit(1); }
 
-// Unpaid probe
-const probe = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-console.log('unpaid probe: status=' + probe.status);
+console.log(`=== x402 paid call ===`);
+console.log(`URL:     ${url}`);
+console.log(`Network: ${network}`);
 
-// Paid via t54 SDK's x402Fetch buyer wrapper
+const probe = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body });
+console.log(`unpaid probe status=${probe.status}`);
+
 const wallet = Wallet.fromSeed(seed);
-const fetchPaid = x402Fetch({
-  wallet,
-  network: 'xrpl:1',
-});
+console.log(`buyer:   ${wallet.classicAddress}`);
+const fetchPaid = x402Fetch({ wallet, network });
 
-const res = await fetchPaid(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-console.log('paid response: status=' + res.status);
+const res = await fetchPaid(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body });
+console.log(`paid response status=${res.status}`);
 console.log('body:', await res.text());
 
 const paymentResp = res.headers.get('payment-response') || res.headers.get('PAYMENT-RESPONSE');
@@ -30,7 +32,10 @@ if (paymentResp) {
   if (txHash) {
     console.log('PAID REQUEST SUCCEEDED');
     console.log('tx=' + txHash);
-    console.log('explorer=https://testnet.xrpl.org/transactions/' + txHash);
+    const explorer = network === 'xrpl:0'
+      ? 'https://xrpscan.com/tx/' + txHash
+      : 'https://testnet.xrpl.org/transactions/' + txHash;
+    console.log('explorer=' + explorer);
   }
 } else {
   console.log('NO PAYMENT-RESPONSE HEADER FOUND');

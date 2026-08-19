@@ -35,10 +35,10 @@ The seven endpoints are:
 
 | Endpoint | Auth | Cost | Notes |
 |---|---|---|---|
-| `GET /wallet-risk` | x402 | 1000 drops | OFAC + scam-list, 3 chains |
-| `GET /contract-risk` | x402 | 1000 drops | Known-exploit + heuristics, eth only |
-| `POST /tx-simulate-risk` | x402 | 1000 drops | Anvil fork, eth only |
-| `GET /scope-check` | x402 | 1000 drops | 15 bounty programs, 109 contracts |
+| `GET /wallet-risk` | x402 | 5000 drops | OFAC + scam-list, 3 chains |
+| `GET /contract-risk` | x402 | 5000 drops | Known-exploit + heuristics, eth only |
+| `POST /tx-simulate-risk` | x402 | 5000 drops | Anvil fork, eth only |
+| `GET /scope-check` | x402 | 5000 drops | 15 bounty programs, 109 contracts |
 | `POST /verify-poc` | Bearer key | Free (10/min) | Foundry sandbox, closed beta |
 | `GET /auth-ping` | Bearer key | Free | Key health check |
 | `GET /.well-known/{openapi,agent}.json` | Public | Free | Discovery manifests |

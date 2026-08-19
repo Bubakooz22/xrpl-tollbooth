@@ -8,7 +8,7 @@ if (!RLUSD_ISSUER) { console.error('RLUSD_ISSUER env var required'); process.exi
 const RLUSD_CURRENCY_HEX = '524C555344000000000000000000000000000000';
 
 const wallet = Wallet.fromSeed(seed);
-const client = new Client('wss://s.altnet.rippletest.net:51233');
+const client = new Client('wss://xrplcluster.com');
 await client.connect();
 
 const trustSet = {
@@ -27,5 +27,5 @@ console.log('Submitting TrustSet from ' + wallet.address + ' to issuer ' + RLUSD
 const result = await client.submitAndWait(signed.tx_blob);
 console.log('TrustSet result:', result.result.meta.TransactionResult);
 console.log('TrustSet hash:', result.result.hash);
-console.log('Explorer: https://testnet.xrpl.org/transactions/' + result.result.hash);
+console.log('Explorer: https://xrpscan.com/tx/' + result.result.hash);
 await client.disconnect();

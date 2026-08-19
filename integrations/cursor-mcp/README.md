@@ -10,10 +10,10 @@ Seven MCP tools, dropped into Cursor's tool palette:
 
 | Tool | Auth | Cost | Purpose |
 |------|------|------|---------|
-| `wallet_risk` | x402 | 1000 drops | Score any wallet — OFAC + curated scam lists |
-| `contract_risk` | x402 | 1000 drops | Score a contract — known-exploit DB + heuristics |
-| `tx_simulate_risk` | x402 | 1000 drops | Simulate an ETH tx on a mainnet fork, grade the trace |
-| `scope_check` | x402 | 1000 drops | Is this address in a live bug-bounty program? |
+| `wallet_risk` | x402 | 5000 drops | Score any wallet — OFAC + curated scam lists |
+| `contract_risk` | x402 | 5000 drops | Score a contract — known-exploit DB + heuristics |
+| `tx_simulate_risk` | x402 | 5000 drops | Simulate an ETH tx on a mainnet fork, grade the trace |
+| `scope_check` | x402 | 5000 drops | Is this address in a live bug-bounty program? |
 | `verify_poc` | Bearer key | free (rate-limited) | Grade a Foundry `.t.sol` PoC against a mainnet fork |
 | `auth_ping` | Bearer key | free | Sanity-check the API key |
 | `list_endpoints` | none | free | Fetch `/.well-known/agent.json` |
@@ -24,7 +24,7 @@ Seven MCP tools, dropped into Cursor's tool palette:
 - Cursor 0.45 or later (any version that supports `.cursor/mcp.json`)
 - A clone of this repo — the MCP server delegates x402 payments to
   `scripts/paid-call.mjs` in the repo root.
-- A funded XRPL **testnet** seed in `.env` at the repo root (`XRPL_SEED=...`)
+- A funded XRPL **mainnet** seed in `.env` at the repo root (`XRPL_SEED=...`)
 - A tollbooth API key if you want to call `verify_poc` or `auth_ping`
 
 ## Install
@@ -57,7 +57,7 @@ available in:
       "env": {
         "TOLLBOOTH_URL": "http://127.0.0.1:8787",
         "TOLLBOOTH_API_KEY": "tb_live_...",
-        "XRPL_SEED": "s...testnet-seed..."
+        "XRPL_SEED": "s...mainnet-seed..."
       }
     }
   }
@@ -83,7 +83,7 @@ After saving, restart Cursor (or Settings → Tools & MCP → refresh). The
 |-----|----------|-------|
 | `TOLLBOOTH_URL` | no | Defaults to `http://127.0.0.1:8787`. Point at the droplet (`http://45.55.48.101:8787`) for remote calls. |
 | `TOLLBOOTH_API_KEY` | for `verify_poc` and `auth_ping` | From your closed-beta credential |
-| `XRPL_SEED` | for the four x402 tools | Testnet-only. Never commit. Testnet faucet: <https://xrpl.org/xrp-testnet-faucet.html> |
+| `XRPL_SEED` | for the four x402 tools | Mainnet — never commit. Fund from an exchange or wallet: <(mainnet — no faucet; fund from an exchange or wallet)> |
 | `PAID_CALL_SCRIPT_PATH` | no | Override the path to `scripts/paid-call.mjs`. Defaults to `../../../scripts/paid-call.mjs` relative to `dist/index.js`. |
 
 ## Testing it works
@@ -125,7 +125,7 @@ important ones for agent decisions:
 server isn't reachable. Test with `curl $TOLLBOOTH_URL/.well-known/agent.json`.
 
 **"paid-call.mjs exited N"** — the x402 subprocess hit an error. Set
-`XRPL_SEED` to a funded testnet address, or run the script standalone with
+`XRPL_SEED` to a funded mainnet address, or run the script standalone with
 the same args to see full logs.
 
 **Server doesn't appear in Cursor** — restart Cursor (fully, not just window
@@ -162,7 +162,7 @@ workaround](https://forum.cursor.com/t/mcp-stdio-command-with-spaces-in-path-bro
   rate limits, batch on the caller side.
 - **No wallet balance checks.** If `XRPL_SEED` is unfunded, the four paid
   tools will fail on the first call. Fund from
-  <https://xrpl.org/xrp-testnet-faucet.html> before use.
+  <(mainnet — no faucet; fund from an exchange or wallet)> before use.
 
 ## Also see
 

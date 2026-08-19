@@ -3,7 +3,7 @@
   "info": {
     "title": "XRPL Toll Booth \u2014 Cybersecurity API",
     "summary": "Pay-per-call cybersecurity endpoints for Web3 agents and auditors, settled on the XRP Ledger via x402.",
-    "description": "The first cybersecurity toll booth on XRPL. Two auth models coexist:\n\n1. **x402 pay-per-call** on `/wallet-risk`, `/contract-risk`, `/tx-simulate-risk`, `/scope-check`. Each call costs a small amount (1000 drops XRP or 0.002 RLUSD) settled on-chain via the x402 facilitator before the endpoint executes.\n2. **API-key Bearer auth** on `/verify-poc` and `/auth-ping`. In closed beta; contact the maintainer for a key.\n\nAll endpoints return a stable `reason_codes[]` array so downstream agents can grade findings without parsing prose.",
+    "description": "The first cybersecurity toll booth on XRPL. Two auth models coexist:\n\n1. **x402 pay-per-call** on `/wallet-risk`, `/contract-risk`, `/tx-simulate-risk`, `/scope-check`. Each call costs a small amount (5000 drops XRP or 0.002 RLUSD) settled on-chain via the x402 facilitator before the endpoint executes.\n2. **API-key Bearer auth** on `/verify-poc` and `/auth-ping`. In closed beta; contact the maintainer for a key.\n\nAll endpoints return a stable `reason_codes[]` array so downstream agents can grade findings without parsing prose.",
     "version": "0.6.1",
     "contact": {
       "name": "transactionguardian2025",
@@ -17,7 +17,7 @@
   "servers": [
     {
       "url": "http://45.55.48.101:8787",
-      "description": "Droplet 45 \u2014 staging tollbooth on XRPL testnet"
+      "description": "Droplet 45 \u2014 staging tollbooth on XRPL mainnet"
     }
   ],
   "tags": [
@@ -56,8 +56,8 @@
           "facilitator": {
             "type": "object",
             "properties": {
-              "scheme":      { "type": "string", "example": "xrpl-testnet-native" },
-              "network":     { "type": "string", "example": "xrpl-testnet" },
+              "scheme":      { "type": "string", "example": "exact" },
+              "network":     { "type": "string", "example": "xrpl:0" },
               "x402Version": { "type": "integer", "example": 2 }
             }
           }
@@ -79,12 +79,12 @@
             "items": {
               "type": "object",
               "properties": {
-                "scheme":      { "type": "string", "example": "xrpl-testnet-native" },
-                "network":     { "type": "string", "example": "xrpl-testnet" },
+                "scheme":      { "type": "string", "example": "exact" },
+                "network":     { "type": "string", "example": "xrpl:0" },
                 "asset":       { "type": "string", "description": "'native' for XRP, or 40-hex currency code for IOU." },
                 "issuer":      { "type": "string", "description": "IOU issuer address (present for RLUSD accepts entry only)." },
                 "amount":      { "type": "string", "description": "Amount in drops for XRP, or decimal string for IOU." },
-                "payTo":       { "type": "string", "example": "rHwXHECZUzumTAVACsR6N6pRHtvpTUEfzf" },
+                "payTo":       { "type": "string", "example": "rK1C1DPzJo9gSjK2LSdhV5J5veFB84zHer" },
                 "invoiceId":   { "type": "string", "format": "uuid" },
                 "maxTimeoutSeconds": { "type": "integer", "example": 300 },
                 "x402Version": { "type": "integer", "example": 2 }
@@ -329,7 +329,7 @@
       "post": {
         "tags": ["risk"],
         "summary": "Score a wallet address for known risk signals.",
-        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Checks OFAC (100 ETH + 1 XRPL + 4 SOL entries) and a curated scam-address list (652 ETH entries). Cached: no.",
+        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Checks OFAC (100 ETH + 1 XRPL + 4 SOL entries) and a curated scam-address list (652 ETH entries). Cached: no.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -348,7 +348,7 @@
       "post": {
         "tags": ["risk"],
         "summary": "Score a smart-contract address for known-exploit and heuristic risk.",
-        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Matches against a curated exploit database (5 entries at time of writing) plus source-code heuristics when Etherscan key is configured.",
+        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Matches against a curated exploit database (5 entries at time of writing) plus source-code heuristics when Etherscan key is configured.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -367,7 +367,7 @@
       "post": {
         "tags": ["risk"],
         "summary": "Simulate an Ethereum transaction on a mainnet fork and grade the outcome.",
-        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Spins up an ephemeral anvil fork, impersonates `from`, sets balance, executes, mines a block, parses receipt logs and traces. Detects unlimited approvals, ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token outbound flows.",
+        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Spins up an ephemeral anvil fork, impersonates `from`, sets balance, executes, mines a block, parses receipt logs and traces. Detects unlimited approvals, ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token outbound flows.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -386,7 +386,7 @@
       "post": {
         "tags": ["scope"],
         "summary": "Look up whether an address is in scope of any known bug bounty program.",
-        "description": "Costs 1000 drops XRP or 0.002 RLUSD per call. Refreshed daily by systemd; source-of-truth JSON committed to the repo. Currently 15 programs across 109 contracts.",
+        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Refreshed daily by systemd; source-of-truth JSON committed to the repo. Currently 15 programs across 109 contracts.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,

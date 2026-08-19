@@ -11,7 +11,7 @@ similes + examples in the frontmatter.
 
 | Action name | Similes / triggers | Endpoint | Auth |
 |---|---|---|---|
-| `TOLLBOOTH_WALLET_RISK` | "check wallet", "OFAC", "sanctioned", "scam lookup" | `/wallet-risk` | x402 (1000 drops) |
+| `TOLLBOOTH_WALLET_RISK` | "check wallet", "OFAC", "sanctioned", "scam lookup" | `/wallet-risk` | x402 (5000 drops) |
 | `TOLLBOOTH_CONTRACT_RISK` | "check contract", "is exploit", "audit contract" | `/contract-risk` | x402 |
 | `TOLLBOOTH_SCOPE_CHECK` | "bounty scope", "in scope" | `/scope-check` | x402 |
 | `TOLLBOOTH_AUTH_PING` | "check tollbooth key", "ping tollbooth" | `/auth-ping` | Bearer API key |

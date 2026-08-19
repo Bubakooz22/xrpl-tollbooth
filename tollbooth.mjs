@@ -47,6 +47,15 @@ function loadDiscoveryDocs() {
 // Node built-ins only. No express/fastify. Async/await throughout.
 // ---------------------------------------------------------------------------
 
+
+// Trust X-Forwarded-Proto / X-Forwarded-Host from upstream reverse proxy (Caddy).
+// Falls back to http + host header when running without a proxy.
+function externalUrl(req) {
+  const proto = (req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+  const host  = (req.headers["x-forwarded-host"]  || req.headers.host || "localhost").split(",")[0].trim();
+  return `${proto}://${host}${req.url}`;
+}
+
 const REQUIRED_ENV = ["TOLL_DESTINATION", "TOLL_PRICE_DROPS", "FACILITATOR_URL", "PORT"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
@@ -82,7 +91,7 @@ const SOURCE_TAG = Number(process.env.TOLL_SOURCE_TAG ?? 804681468);
 // --- RLUSD (Ripple USD) support -------------------------------------------------
 // Testnet RLUSD issuer per Ripple docs (docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl)
 // and confirmed via t54's XRPL x402 facilitator scheme docs (xrpl-x402.t54.ai/docs/xrpl-scheme).
-const RLUSD_ISSUER = process.env.RLUSD_ISSUER || 'rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV';
+const RLUSD_ISSUER = process.env.RLUSD_ISSUER || 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De';
 // "RLUSD" ASCII right-padded to a 40-hex-char currency code (XRPL non-standard currency code format).
 const RLUSD_CURRENCY_HEX = '524C555344000000000000000000000000000000';
 // Price for the RLUSD-priced accept entry, as a decimal string (IOU amounts are decimal, not drops).
@@ -225,7 +234,7 @@ function buildPaymentRequirements(req, { invoiceId, asset, amount, issuer } = {}
     amount: amount !== undefined ? String(amount) : String(TOLL_PRICE_DROPS),
     asset: asset !== undefined ? asset : "XRP",
     payTo: TOLL_DESTINATION,
-    resource: { url: `http://${req.headers.host}${req.url}` },
+    resource: { url: externalUrl(req) },
     maxTimeoutSeconds: 300,
     facilitatorUrl: FACILITATOR_URL,
     extra: {
@@ -265,7 +274,7 @@ async function requirePayment(req, res) {
   if (!sigHeader) {
     const paymentRequired = {
       x402Version: 2,
-      resource: { url: `http://${req.headers.host}${req.url}` },
+      resource: { url: externalUrl(req) },
       accepts: [
       buildPaymentRequirements(req, { invoiceId: crypto.randomUUID() }),
       buildPaymentRequirements(req, {

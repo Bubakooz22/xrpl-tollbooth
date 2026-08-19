@@ -30,7 +30,7 @@ The two files reference each other. `openapi.json` links `agent.json` in `info.d
 
 ## Auth models exposed to agents
 
-- **`x402`** — pay-per-call on XRPL testnet. First request returns 402 with signed payment requirements; sign and retry. Uniform price: 1000 drops XRP **or** 0.002 RLUSD across all four risk/scope endpoints. Facilitator: `https://xrpl-facilitator-testnet.t54.ai`.
+- **`x402`** — pay-per-call on XRPL mainnet. First request returns 402 with signed payment requirements; sign and retry. Uniform price: 5000 drops XRP (~$0.0025) **or** 0.002 RLUSD across all four risk/scope endpoints. Facilitator: `https://xrpl-facilitator-mainnet.t54.ai`.
 - **`bearer_api_key`** — `Authorization: Bearer tb_live_<32hex>`. Closed beta. To request access, open a GitHub issue on `xrpl-tollbooth` with a one-line use case.
 
 The `bearer_api_key` routes are documented but not price-attached. When we open general availability we'll add a `pricing[]` block and drop the `beta: true` flag.

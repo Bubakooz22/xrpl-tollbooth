@@ -1,6 +1,6 @@
 # XRPL Toll Booth \u2014 Claude Code skill
 
-A Claude Code skill that lets the agent call the XRPL Toll Booth's cybersecurity API directly from your terminal. The tollbooth charges per call in XRP (1000 drops \u2248 $0.0005) settled on-chain via the x402 protocol. Two endpoints are API-key gated (closed beta).
+A Claude Code skill that lets the agent call the XRPL Toll Booth's cybersecurity API directly from your terminal. The tollbooth charges per call in XRP (5000 drops \u2248 $0.0005) settled on-chain via the x402 protocol. Two endpoints are API-key gated (closed beta).
 
 ## What it does
 
@@ -73,7 +73,7 @@ Every risk and verify endpoint returns a stable `reason_codes[]` array. Full cat
 
 ## Cost per call
 
-- **x402 endpoints** (`walletRisk`, `contractRisk`, `txSimulateRisk`, `scopeCheck`): 1000 drops XRP (\u2248 $0.0005) or 0.002 RLUSD per call. Payment settles on XRPL testnet before the endpoint executes.
+- **x402 endpoints** (`walletRisk`, `contractRisk`, `txSimulateRisk`, `scopeCheck`): 5000 drops XRP (\u2248 $0.0005) or 0.002 RLUSD per call. Payment settles on XRPL mainnet before the endpoint executes.
 - **API-key endpoints** (`verifyPoc`, `authPing`): no per-call charge in closed beta.
 
 ## How the skill discovers the API
@@ -94,7 +94,7 @@ kill $(lsof -t -i :8787) 2>/dev/null; sleep 2
 nohup npm start > /tmp/tollbooth.log 2>&1 & disown
 ```
 
-**"paid-call.mjs exited 1"** \u2014 usually means the payer wallet has insufficient testnet XRP. Fund it at <https://faucet.altnet.rippletest.net/accounts>.
+**"paid-call.mjs exited 1"** \u2014 usually means the payer wallet has insufficient mainnet XRP. Fund it at <(mainnet — fund from an exchange or wallet)>.
 
 **Skill not triggering** \u2014 confirm the install symlink resolved:
 

@@ -145,8 +145,8 @@ server.registerTool(
   {
     description:
       'Score a wallet address for OFAC sanctions and curated scam-list '
-      + 'membership using the XRPL Toll Booth API. Costs 1000 drops XRP '
-      + '(~$0.0005) per call, settled on XRPL testnet via x402. Chains: '
+      + 'membership using the XRPL Toll Booth API. Costs 5000 drops XRP '
+      + '(~$0.0005) per call, settled on XRPL mainnet via x402. Chains: '
       + 'eth, xrpl, sol. Returns risk_level, score, reason_codes[], '
       + 'sources_checked[]. Reason codes: OFAC_SANCTIONED, SCAM_LIST_HIT, '
       + "UNKNOWN_ADDRESS. Refuse to proceed if risk_level is 'critical'.",
@@ -167,7 +167,7 @@ server.registerTool(
   {
     description:
       'Score a smart-contract address for known-exploit database matches '
-      + 'and source-code heuristics. Chain eth only. Costs 1000 drops XRP '
+      + 'and source-code heuristics. Chain eth only. Costs 5000 drops XRP '
       + 'per call via x402. Reason codes: KNOWN_EXPLOIT_MATCH (refuse), '
       + 'SELFDESTRUCT_PRESENT, DELEGATECALL_PRESENT, PROXY_UPGRADEABLE, '
       + 'SOURCE_UNVERIFIED (warn).',
@@ -188,7 +188,7 @@ server.registerTool(
   {
     description:
       'Simulate an Ethereum transaction on a mainnet fork and grade the '
-      + 'outcome. Costs 1000 drops XRP per call via x402. Detects unlimited '
+      + 'outcome. Costs 5000 drops XRP per call via x402. Detects unlimited '
       + 'approvals, ownership transfer, proxy upgrade, selfdestruct, reverts, '
       + 'and multi-token outbound flows. Reason codes: SELFDESTRUCT_INVOKED, '
       + 'UNLIMITED_APPROVAL_GRANTED, OWNERSHIP_TRANSFERRED, PROXY_UPGRADED '
@@ -213,7 +213,7 @@ server.registerTool(
   {
     description:
       'Check whether an address is in scope of any active bug bounty '
-      + 'program. Costs 1000 drops XRP per call via x402. Returns in_scope '
+      + 'program. Costs 5000 drops XRP per call via x402. Returns in_scope '
       + '(bool) and programs[] with platform, name, url, max_bounty. '
       + 'Absence of a match is not proof — the target may just not be tracked.',
     inputSchema: {

@@ -170,7 +170,7 @@ const walletRiskAction: Action = {
   ],
   description:
     'Score a wallet address for OFAC sanctions and curated scam-list '
-    + 'membership using the XRPL Toll Booth. Costs 1000 drops XRP per call. '
+    + 'membership using the XRPL Toll Booth. Costs 5000 drops XRP per call. '
     + "Refuse to interact if risk_level is 'critical'.",
   examples: [
     [
@@ -209,7 +209,7 @@ const contractRiskAction: Action = {
   similes: ['CHECK_CONTRACT', 'IS_EXPLOIT', 'CONTRACT_RISK', 'AUDIT_CONTRACT'],
   description:
     'Score a smart contract for known-exploit database matches and '
-    + 'source-code heuristics. Ethereum only. Costs 1000 drops XRP per call.',
+    + 'source-code heuristics. Ethereum only. Costs 5000 drops XRP per call.',
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Is contract 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 an exploit?' } },
@@ -244,7 +244,7 @@ const scopeCheckAction: Action = {
   similes: ['CHECK_BOUNTY_SCOPE', 'IS_IN_SCOPE', 'BOUNTY_SCOPE'],
   description:
     'Check whether an address is in scope of any active bug bounty program. '
-    + 'Costs 1000 drops XRP per call.',
+    + 'Costs 5000 drops XRP per call.',
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Is 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 in any bug bounty scope?' } },
@@ -315,7 +315,7 @@ export const xrplTollboothPlugin: Plugin = {
   name: 'xrpl-tollbooth',
   description:
     'Wallet-risk, contract-risk, bug-bounty scope-check, and PoC verification '
-    + 'via the XRPL Toll Booth API. Paid endpoints settle on XRPL testnet via x402.',
+    + 'via the XRPL Toll Booth API. Paid endpoints settle on XRPL mainnet via x402.',
   actions: [
     walletRiskAction,
     contractRiskAction,

@@ -104,7 +104,7 @@ const walletRiskTool = new DynamicStructuredTool({
   name: 'wallet_risk',
   description:
     'Score a wallet address for OFAC + curated scam-list membership. Costs '
-    + '1000 drops XRP (~$0.0005) per call via x402. Chains: eth, xrpl, sol. '
+    + '5000 drops XRP (~$0.0025) per call via x402. Chains: eth, xrpl, sol. '
     + 'Returns risk_level, score, reason_codes[], sources_checked[]. Codes: '
     + 'OFAC_SANCTIONED, SCAM_LIST_HIT, UNKNOWN_ADDRESS. Refuse to interact '
     + "if risk_level is 'critical'.",
@@ -120,7 +120,7 @@ const contractRiskTool = new DynamicStructuredTool({
   name: 'contract_risk',
   description:
     'Score a smart-contract address for known-exploit matches and source-code '
-    + 'heuristics. Costs 1000 drops XRP per call via x402. Chain eth only. '
+    + 'heuristics. Costs 5000 drops XRP per call via x402. Chain eth only. '
     + 'Codes: KNOWN_EXPLOIT_MATCH (refuse), SELFDESTRUCT_PRESENT, '
     + 'DELEGATECALL_PRESENT, PROXY_UPGRADEABLE, SOURCE_UNVERIFIED (warn).',
   schema: z.object({
@@ -135,7 +135,7 @@ const txSimulateRiskTool = new DynamicStructuredTool({
   name: 'tx_simulate_risk',
   description:
     'Simulate an Ethereum transaction on a mainnet fork and grade the outcome. '
-    + 'Costs 1000 drops XRP per call via x402. Detects unlimited approvals, '
+    + 'Costs 5000 drops XRP per call via x402. Detects unlimited approvals, '
     + 'ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token '
     + 'outbound flows. Codes: SELFDESTRUCT_INVOKED, UNLIMITED_APPROVAL_GRANTED, '
     + 'OWNERSHIP_TRANSFERRED, PROXY_UPGRADED (hard warn); TX_REVERTED, '
@@ -155,7 +155,7 @@ const scopeCheckTool = new DynamicStructuredTool({
   name: 'scope_check',
   description:
     'Check whether an address is in scope of any active bug bounty program. '
-    + 'Costs 1000 drops XRP per call via x402. Returns in_scope (bool) and '
+    + 'Costs 5000 drops XRP per call via x402. Returns in_scope (bool) and '
     + 'programs[] with platform, name, url, max_bounty. Absence of a match '
     + 'is not proof — the target may just not be tracked.',
   schema: z.object({

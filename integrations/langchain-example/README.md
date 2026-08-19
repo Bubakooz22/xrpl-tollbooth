@@ -28,16 +28,16 @@ Both examples read the same three env vars:
 - `TOLLBOOTH_API_KEY` — required for `verify_poc` and `auth_ping`
   (closed beta; open a GitHub issue on `xrpl-tollbooth` to request one)
 - `XRPL_SEED` — required for the four x402-paid endpoints (payer wallet
-  seed on XRPL testnet)
+  seed on XRPL mainnet)
 
 ## Auth model per endpoint
 
 | Endpoint | Auth | Cost |
 |---|---|---|
-| `wallet_risk` | x402 payment on XRPL testnet | 1000 drops (~$0.0005) |
-| `contract_risk` | x402 | 1000 drops |
-| `tx_simulate_risk` | x402 | 1000 drops |
-| `scope_check` | x402 | 1000 drops |
+| `wallet_risk` | x402 payment on XRPL mainnet | 5000 drops (~$0.0025) |
+| `contract_risk` | x402 | 5000 drops |
+| `tx_simulate_risk` | x402 | 5000 drops |
+| `scope_check` | x402 | 5000 drops |
 | `verify_poc` | Bearer API key | Free (closed beta, 10/min) |
 | `auth_ping` | Bearer API key | Free |
 

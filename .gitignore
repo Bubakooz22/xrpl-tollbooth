@@ -17,3 +17,5 @@ data/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+.env.mainnet
+buyer.env*
