@@ -22,7 +22,14 @@ const fetchPaid = x402Fetch({ wallet, network });
 
 const res = await fetchPaid(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body });
 console.log(`paid response status=${res.status}`);
-console.log('body:', await res.text());
+const bodyText = await res.text();
+try {
+  const parsed = JSON.parse(bodyText);
+  console.log('body:');
+  console.log(JSON.stringify(parsed, null, 2));
+} catch {
+  console.log('body:', bodyText);
+}
 
 const paymentResp = res.headers.get('payment-response') || res.headers.get('PAYMENT-RESPONSE');
 if (paymentResp) {
