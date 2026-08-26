@@ -8,7 +8,7 @@
     "start": "node --env-file=.env tollbooth.mjs",
     "pay": "node --env-file=.env send-payment.mjs",
     "test:health": "curl -s http://localhost:8787/health | jq .",
-    "test:v08": "node test/canonical-json.test.mjs && node test/envelope-signer.test.mjs && node test/keys.test.mjs"
+    "test:v08": "node test/canonical-json.test.mjs && node test/envelope-signer.test.mjs && node test/keys.test.mjs && node --test test/wellknown-keys.test.mjs"
   },
   "keywords": [],
   "author": "",
