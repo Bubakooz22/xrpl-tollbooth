@@ -1,15 +1,19 @@
 node_modules/
-.env
-.env.*
 *.log
 
-# temp/scratch files
-.tmp_*
+# env files
+.env
+.env.*
 !.env.example
 payer.env
 !payer.env.example
 refresh.env
 !refresh.env.example
+.env.mainnet
+buyer.env*
+
+# temp/scratch files
+.tmp_*
 
 # Phase 6.0 — API key sqlite store
 data/
@@ -17,5 +21,15 @@ data/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
-.env.mainnet
-buyer.env*
+
+# v0.8 — Ed25519 signing keys, NEVER commit
+keys/*.private.pem
+keys/*.meta.json
+!keys/README.md
+!keys/.gitkeep
+
+# Backups from earlier iterations
+*.bak.*
+*.pre-*.mjs
+*.custom-backup.*
+*.foundation-sdk.*
