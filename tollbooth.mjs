@@ -14,6 +14,7 @@ import {
 } from './lib/api-keys.mjs';
 import { initRateLimiter, checkRateLimit } from './lib/rate-limit.mjs';
 import { verifyPoc } from './lib/verify-poc.mjs';
+import { loadKeys } from './lib/keys.mjs';
 
 // Phase 6.1 — per-route rate limit override.
 // /verify-poc spawns a forge subprocess + RPC fetch, so we cap tighter
@@ -24,6 +25,35 @@ const VERIFY_POC_CAP_PER_MINUTE = Number(process.env.VERIFY_POC_CAP_PER_MINUTE |
 // Loaded once at boot. ETag = sha256 of the raw bytes. Served with a short
 // public max-age so CDNs / agent frameworks can cache while iterating.
 const DISCOVERY_DOCS = loadDiscoveryDocs();
+
+// Phase 8.0 — v0.8 signing keys.
+// Loaded from TOLLBOOTH_SIGNING_KEYS_DIR (default ./keys/) once at boot.
+// Retired keys stay published so historic envelopes remain verifiable.
+// TOLLBOOTH_V08_ENABLED controls whether v0.8 machinery runs at all —
+// leaving it unset in production is a safe no-op until we're ready to flip on.
+const V08_ENABLED = process.env.TOLLBOOTH_V08_ENABLED === "1";
+const SIGNING_KEYS = V08_ENABLED ? loadSigningKeys() : null;
+const TOLLBOOTH_KEYS_DOC = SIGNING_KEYS ? buildKeysManifestDoc(SIGNING_KEYS.manifest) : null;
+
+function loadSigningKeys() {
+  try {
+    const keys = loadKeys();
+    console.log(
+      `[startup] v0.8 signing keys loaded: active=${keys.active.key_id}, total=${keys.all.length}`,
+    );
+    return keys;
+  } catch (err) {
+    console.error(`[startup] FATAL: TOLLBOOTH_V08_ENABLED=1 but key load failed: ${err.message}`);
+    throw err;
+  }
+}
+
+function buildKeysManifestDoc(manifest) {
+  const body = Buffer.from(JSON.stringify(manifest, null, 2) + "\n", "utf8");
+  const etag =
+    'W/"' + crypto.createHash("sha256").update(body).digest("hex").slice(0, 16) + '"';
+  return { body, etag, contentType: "application/json; charset=utf-8" };
+}
 
 function loadDiscoveryDocs() {
   const docs = {};
@@ -429,6 +459,33 @@ async function handleDiscoveryDoc(req, res, key) {
     "Access-Control-Allow-Origin": "*",
   });
   res.end(doc.body);
+  log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
+}
+
+async function handleTollboothKeys(req, res) {
+  if (!TOLLBOOTH_KEYS_DOC) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "v08_not_enabled", code: 503 }));
+    log({ method: req.method, path: req.url, status: 503, payment_status: "unpaid" });
+    return;
+  }
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (ifNoneMatch && ifNoneMatch === TOLLBOOTH_KEYS_DOC.etag) {
+    res.writeHead(304, {
+      ETag: TOLLBOOTH_KEYS_DOC.etag,
+      "Cache-Control": "public, max-age=300",
+    });
+    res.end();
+    log({ method: req.method, path: req.url, status: 304, payment_status: "unpaid" });
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": TOLLBOOTH_KEYS_DOC.contentType,
+    "Cache-Control": "public, max-age=300",
+    ETag: TOLLBOOTH_KEYS_DOC.etag,
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end(TOLLBOOTH_KEYS_DOC.body);
   log({ method: req.method, path: req.url, status: 200, payment_status: "unpaid" });
 }
 
@@ -924,6 +981,12 @@ async function router(req, res) {
 
     if (req.method === "GET" && path === "/.well-known/x402") {
       return await handleDiscovery(req, res);
+    }
+
+    // Phase 8.0 — v0.8 signing key manifest. Public, cacheable, no auth.
+    // Retired keys stay published forever so historic envelopes verify.
+    if (req.method === "GET" && path === "/.well-known/tollbooth-keys.json") {
+      return await handleTollboothKeys(req, res);
     }
     if (req.method === "POST" && path === "/wallet-risk") {
       return await handleWalletRisk(req, res);

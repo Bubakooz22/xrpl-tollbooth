@@ -1,4 +1,7 @@
 node_modules/
+
+# v0.8 test-suite tmp key dirs (created by test/wellknown-keys.test.mjs)
+.tmp-keys-*/
 *.log
 
 # env files
