@@ -11,7 +11,9 @@ import {
   extractRiskFields,
   buildHumanSummary,
   wrapInEnvelope,
+  maybeWrapResponse,
   V08_ACCEPT_MIME,
+  V08_CONTENT_TYPE,
 } from "../lib/envelope-wrapper.mjs";
 import { verifyEnvelope } from "../lib/envelope-signer.mjs";
 
@@ -290,6 +292,180 @@ t("wrapInEnvelope: throws on missing signingKey", () => {
       }),
     /signingKey/,
   );
+});
+
+// -----------------------------------------------------------------------------
+// extractRiskFields — verify-poc shape (verified + string reason_codes)
+// -----------------------------------------------------------------------------
+
+t("extractRiskFields: verify-poc verified=true → risk_level 'low'", () => {
+  const out = extractRiskFields({
+    verified: true,
+    reason_codes: ["POC_VERIFIED"],
+  });
+  assert.equal(out.risk_level, "low");
+  assert.equal(out.reason_codes.length, 1);
+  assert.equal(out.reason_codes[0].code, "POC_VERIFIED");
+  assert.equal(out.reason_codes[0].severity, "info");
+  assert.equal(out.reason_codes[0].override_permitted, true);
+});
+
+t("extractRiskFields: verify-poc verified=false → risk_level 'high'", () => {
+  const out = extractRiskFields({
+    verified: false,
+    reason_codes: ["POC_UNVERIFIED"],
+  });
+  assert.equal(out.risk_level, "high");
+  assert.equal(out.reason_codes[0].code, "POC_UNVERIFIED");
+  assert.equal(out.reason_codes[0].severity, "info");
+});
+
+t("extractRiskFields: verify-poc error codes get severity 'high'", () => {
+  const out = extractRiskFields({
+    verified: false,
+    reason_codes: ["COMPILE_ERROR", "MISSING_TEST_FILE"],
+  });
+  assert.equal(out.reason_codes[0].code, "COMPILE_ERROR");
+  assert.equal(out.reason_codes[0].severity, "high");
+  assert.equal(out.reason_codes[0].override_permitted, true);
+  assert.equal(out.reason_codes[1].code, "MISSING_TEST_FILE");
+  assert.equal(out.reason_codes[1].severity, "high");
+});
+
+t("extractRiskFields: risk-handler shape unaffected by verify-poc path", () => {
+  const out = extractRiskFields({
+    risk_level: "medium",
+    reason_codes: [{ code: "HIGH_GAS", severity: "medium", source: "tenderly" }],
+  });
+  assert.equal(out.risk_level, "medium");
+  assert.equal(out.reason_codes[0].code, "HIGH_GAS");
+  assert.equal(out.reason_codes[0].source, "tenderly");
+});
+
+// -----------------------------------------------------------------------------
+// maybeWrapResponse — gate & fallback tests
+// -----------------------------------------------------------------------------
+
+// Helper to build the minimum req/res/signingKeys stubs the helper needs.
+function makeReq(acceptHeader) {
+  return {
+    headers: acceptHeader ? { accept: acceptHeader } : {},
+  };
+}
+function makeRes() {
+  const headers = {};
+  return {
+    headersSent: false,
+    setHeader: (k, v) => (headers[k] = v),
+    _headers: headers,
+  };
+}
+function makeSigningKeys() {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  return {
+    active: {
+      key_id: "tb-test-2026",
+      private_key_pem: privateKey.export({ type: "pkcs8", format: "pem" }),
+      public_key_pem: publicKey.export({ type: "spki", format: "pem" }),
+    },
+  };
+}
+
+t("maybeWrapResponse: statusCode != 200 → returns legacy body", () => {
+  const out = maybeWrapResponse({
+    req: makeReq(V08_ACCEPT_MIME),
+    res: makeRes(),
+    statusCode: 400,
+    endpoint: "/wallet-risk",
+    requestBody: { address: "r1" },
+    legacyBody: { error: "missing_address" },
+    signingKeys: makeSigningKeys(),
+  });
+  assert.equal(out.wrapped, false);
+  assert.equal(out.contentType, "application/json");
+  assert.deepEqual(out.body, { error: "missing_address" });
+});
+
+t("maybeWrapResponse: signingKeys=null → returns legacy body", () => {
+  const out = maybeWrapResponse({
+    req: makeReq(V08_ACCEPT_MIME),
+    res: makeRes(),
+    statusCode: 200,
+    endpoint: "/wallet-risk",
+    requestBody: {},
+    legacyBody: { risk_level: "low", reason_codes: [] },
+    signingKeys: null,
+  });
+  assert.equal(out.wrapped, false);
+});
+
+t("maybeWrapResponse: no v0.8 accept header → returns legacy body", () => {
+  const out = maybeWrapResponse({
+    req: makeReq("application/json"),
+    res: makeRes(),
+    statusCode: 200,
+    endpoint: "/wallet-risk",
+    requestBody: {},
+    legacyBody: { risk_level: "low", reason_codes: [] },
+    signingKeys: makeSigningKeys(),
+  });
+  assert.equal(out.wrapped, false);
+});
+
+t("maybeWrapResponse: all conditions met → returns wrapped envelope", () => {
+  const out = maybeWrapResponse({
+    req: makeReq(V08_ACCEPT_MIME),
+    res: makeRes(),
+    statusCode: 200,
+    endpoint: "/wallet-risk",
+    requestBody: { address: "r1" },
+    legacyBody: { risk_level: "low", reason_codes: [] },
+    signingKeys: makeSigningKeys(),
+  });
+  assert.equal(out.wrapped, true);
+  assert.equal(out.contentType, V08_CONTENT_TYPE);
+  assert.equal(out.body.envelope.version, "0.8");
+  assert.ok(out.body.signature.value);
+});
+
+t("maybeWrapResponse: verify-poc shape wraps correctly", () => {
+  const out = maybeWrapResponse({
+    req: makeReq(V08_ACCEPT_MIME),
+    res: makeRes(),
+    statusCode: 200,
+    endpoint: "/verify-poc",
+    requestBody: { test_file: "..." },
+    legacyBody: { verified: true, reason_codes: ["POC_VERIFIED"], duration_ms: 1234 },
+    signingKeys: makeSigningKeys(),
+  });
+  assert.equal(out.wrapped, true);
+  assert.equal(out.body.envelope.risk_level, "low");
+  assert.equal(out.body.envelope.reason_codes[0].code, "POC_VERIFIED");
+  assert.equal(out.body.envelope.endpoint, "/verify-poc");
+});
+
+t("maybeWrapResponse: sign failure falls through to legacy body + warning header", () => {
+  const res = makeRes();
+  const out = maybeWrapResponse({
+    req: makeReq(V08_ACCEPT_MIME),
+    res,
+    statusCode: 200,
+    endpoint: "/wallet-risk",
+    requestBody: {},
+    legacyBody: { risk_level: "low", reason_codes: [] },
+    // Broken signing key: valid shape but garbage PEM → signEnvelope throws.
+    signingKeys: {
+      active: {
+        key_id: "broken",
+        private_key_pem: "-----BEGIN PRIVATE KEY-----\nGARBAGE\n-----END PRIVATE KEY-----",
+      },
+    },
+    // Silence expected error log during test.
+    logError: () => {},
+  });
+  assert.equal(out.wrapped, false);
+  assert.equal(out.contentType, "application/json");
+  assert.equal(res._headers["X-Tollbooth-V08-Warning"], "envelope_wrap_failed");
 });
 
 // -----------------------------------------------------------------------------

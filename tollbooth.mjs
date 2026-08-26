@@ -16,8 +16,7 @@ import { initRateLimiter, checkRateLimit } from './lib/rate-limit.mjs';
 import { verifyPoc } from './lib/verify-poc.mjs';
 import { loadKeys } from './lib/keys.mjs';
 import {
-  shouldWrapInEnvelope,
-  wrapInEnvelope,
+  maybeWrapResponse,
   V08_CONTENT_TYPE,
 } from './lib/envelope-wrapper.mjs';
 
@@ -552,48 +551,25 @@ async function handleWalletRisk(req, res) {
     responseBody = { error: "internal_error", message: e.message };
   }
 
-  // Phase 8.0 — v0.8 envelope wrap.
-  // Only when the caller opted in via Accept header AND v0.8 is enabled
-  // AND we're returning a 200 (envelope only carries fulfilled results).
-  // Any failure below falls through to the legacy v0.7 shape, so callers
-  // never lose data due to signing issues.
-  let contentType = "application/json";
-  if (
-    statusCode === 200 &&
-    SIGNING_KEYS &&
-    shouldWrapInEnvelope(req)
-  ) {
-    try {
-      const wrapped = wrapInEnvelope({
-        endpoint: "/wallet-risk",
-        requestBody: body,
-        result: handlerResult,
-        signingKey: {
-          key_id: SIGNING_KEYS.active.key_id,
-          private_key_pem: SIGNING_KEYS.active.private_key_pem,
-        },
-      });
-      responseBody = wrapped;
-      contentType = V08_CONTENT_TYPE;
-    } catch (e) {
-      // Signing failure is logged loudly but does NOT fail the response.
-      // Caller gets the v0.7 body with a warning header so they know
-      // v0.8 wrapping failed for this call.
-      console.error('[wallet-risk] v0.8 envelope wrap failed:', e.message);
-      res.setHeader('X-Tollbooth-V08-Warning', 'envelope_wrap_failed');
-    }
-  }
+  // Phase 8.0 — v0.8 envelope wrap (opt-in via Accept header).
+  const wrap = maybeWrapResponse({
+    req, res, statusCode,
+    endpoint: "/wallet-risk",
+    requestBody: body,
+    legacyBody: responseBody,
+    signingKeys: SIGNING_KEYS,
+  });
 
-  const headers = { "Content-Type": contentType };
+  const headers = { "Content-Type": wrap.contentType };
   if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
-  res.end(JSON.stringify(responseBody));
+  res.end(JSON.stringify(wrap.body));
   log({
     method: req.method,
     path: req.url,
     status: statusCode,
     payment_status: "settled",
-    extra: contentType === V08_CONTENT_TYPE ? "v08=wrapped" : "v07=legacy",
+    extra: wrap.wrapped ? "v08=wrapped" : "v07=legacy",
   });
 }
 
@@ -636,11 +612,26 @@ async function handleContractRisk(req, res) {
     responseBody = { error: "internal_error", message: e.message };
   }
 
-  const headers = { "Content-Type": "application/json" };
+  // Phase 8.0 — v0.8 envelope wrap (opt-in via Accept header).
+  const wrap = maybeWrapResponse({
+    req, res, statusCode,
+    endpoint: "/contract-risk",
+    requestBody: body,
+    legacyBody: responseBody,
+    signingKeys: SIGNING_KEYS,
+  });
+
+  const headers = { "Content-Type": wrap.contentType };
   if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
-  res.end(JSON.stringify(responseBody));
-  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
+  res.end(JSON.stringify(wrap.body));
+  log({
+    method: req.method,
+    path: req.url,
+    status: statusCode,
+    payment_status: "settled",
+    extra: wrap.wrapped ? "v08=wrapped" : "v07=legacy",
+  });
 }
 
 async function handleTxSimulateRisk(req, res) {
@@ -688,11 +679,26 @@ async function handleTxSimulateRisk(req, res) {
     responseBody = { error: "internal_error", message: e.message };
   }
 
-  const headers = { "Content-Type": "application/json" };
+  // Phase 8.0 — v0.8 envelope wrap (opt-in via Accept header).
+  const wrap = maybeWrapResponse({
+    req, res, statusCode,
+    endpoint: "/tx-simulate-risk",
+    requestBody: body,
+    legacyBody: responseBody,
+    signingKeys: SIGNING_KEYS,
+  });
+
+  const headers = { "Content-Type": wrap.contentType };
   if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
-  res.end(JSON.stringify(responseBody));
-  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
+  res.end(JSON.stringify(wrap.body));
+  log({
+    method: req.method,
+    path: req.url,
+    status: statusCode,
+    payment_status: "settled",
+    extra: wrap.wrapped ? "v08=wrapped" : "v07=legacy",
+  });
 }
 
 async function handleScopeCheck(req, res) {
@@ -992,14 +998,25 @@ async function handleVerifyPoc(req, res) {
       ? 500
       : 200;
 
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(result));
+  // Phase 8.0 — v0.8 envelope wrap (opt-in via Accept header).
+  // /verify-poc's reason_codes are strings (POC_VERIFIED, POC_UNVERIFIED, ...)
+  // — the wrapper's extractRiskFields normalizes them to envelope shape.
+  const wrap = maybeWrapResponse({
+    req, res, statusCode: status,
+    endpoint: "/verify-poc",
+    requestBody: body,
+    legacyBody: result,
+    signingKeys: SIGNING_KEYS,
+  });
+
+  res.writeHead(status, { "Content-Type": wrap.contentType });
+  res.end(JSON.stringify(wrap.body));
   log({
     method: req.method,
     path: req.url,
     status,
     payment_status: "authenticated",
-    extra: `key=${auth.key.prefix} verified=${result.verified} codes=${result.reason_codes.join(",")} duration=${result.duration_ms}ms`,
+    extra: `key=${auth.key.prefix} verified=${result.verified} codes=${result.reason_codes.join(",")} duration=${result.duration_ms}ms${wrap.wrapped ? " v08=wrapped" : ""}`,
   });
 }
 
