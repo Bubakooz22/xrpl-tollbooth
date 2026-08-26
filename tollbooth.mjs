@@ -15,6 +15,11 @@ import {
 import { initRateLimiter, checkRateLimit } from './lib/rate-limit.mjs';
 import { verifyPoc } from './lib/verify-poc.mjs';
 import { loadKeys } from './lib/keys.mjs';
+import {
+  shouldWrapInEnvelope,
+  wrapInEnvelope,
+  V08_CONTENT_TYPE,
+} from './lib/envelope-wrapper.mjs';
 
 // Phase 6.1 — per-route rate limit override.
 // /verify-poc spawns a forge subprocess + RPC fetch, so we cap tighter
@@ -531,14 +536,15 @@ async function handleWalletRisk(req, res) {
 
   let responseBody;
   let statusCode;
+  let handlerResult;
   try {
-    const result = await scoreWallet(addr, chainOverride);
-    if (result && result.error) {
+    handlerResult = await scoreWallet(addr, chainOverride);
+    if (handlerResult && handlerResult.error) {
       statusCode = 400;
-      responseBody = result;
+      responseBody = handlerResult;
     } else {
       statusCode = 200;
-      responseBody = result;
+      responseBody = handlerResult;
     }
   } catch (e) {
     console.error('[wallet-risk] handler error:', e);
@@ -546,11 +552,49 @@ async function handleWalletRisk(req, res) {
     responseBody = { error: "internal_error", message: e.message };
   }
 
-  const headers = { "Content-Type": "application/json" };
+  // Phase 8.0 — v0.8 envelope wrap.
+  // Only when the caller opted in via Accept header AND v0.8 is enabled
+  // AND we're returning a 200 (envelope only carries fulfilled results).
+  // Any failure below falls through to the legacy v0.7 shape, so callers
+  // never lose data due to signing issues.
+  let contentType = "application/json";
+  if (
+    statusCode === 200 &&
+    SIGNING_KEYS &&
+    shouldWrapInEnvelope(req)
+  ) {
+    try {
+      const wrapped = wrapInEnvelope({
+        endpoint: "/wallet-risk",
+        requestBody: body,
+        result: handlerResult,
+        signingKey: {
+          key_id: SIGNING_KEYS.active.key_id,
+          private_key_pem: SIGNING_KEYS.active.private_key_pem,
+        },
+      });
+      responseBody = wrapped;
+      contentType = V08_CONTENT_TYPE;
+    } catch (e) {
+      // Signing failure is logged loudly but does NOT fail the response.
+      // Caller gets the v0.7 body with a warning header so they know
+      // v0.8 wrapping failed for this call.
+      console.error('[wallet-risk] v0.8 envelope wrap failed:', e.message);
+      res.setHeader('X-Tollbooth-V08-Warning', 'envelope_wrap_failed');
+    }
+  }
+
+  const headers = { "Content-Type": contentType };
   if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(responseBody));
-  log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
+  log({
+    method: req.method,
+    path: req.url,
+    status: statusCode,
+    payment_status: "settled",
+    extra: contentType === V08_CONTENT_TYPE ? "v08=wrapped" : "v07=legacy",
+  });
 }
 
 async function handleContractRisk(req, res) {
