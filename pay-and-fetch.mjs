@@ -6,6 +6,7 @@ const url  = (process.env.TOLLBOOTH_URL || 'https://api.txnguardian.com')
            + (process.env.TARGET_PATH   || '/wallet-risk');
 const body = process.env.REQUEST_BODY   || '{"address":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh","chain":"xrpl"}';
 const network = process.env.XRPL_NETWORK || 'xrpl:0'; // mainnet default; override to xrpl:1 for testnet
+const accept  = process.env.ACCEPT_HEADER || 'application/json'; // set to application/vnd.tollbooth.v0.8+json to opt into v0.8 envelope
 
 if (!seed) { console.error('XRPL_BUYER_SEED / PAYER_SEED missing'); process.exit(1); }
 
@@ -13,14 +14,17 @@ console.log(`=== x402 paid call ===`);
 console.log(`URL:     ${url}`);
 console.log(`Network: ${network}`);
 
-const probe = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body });
+console.log(`Accept:  ${accept}`);
+
+const probe = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json', 'Accept': accept}, body });
 console.log(`unpaid probe status=${probe.status}`);
 
 const wallet = Wallet.fromSeed(seed);
 console.log(`buyer:   ${wallet.classicAddress}`);
 const fetchPaid = x402Fetch({ wallet, network });
 
-const res = await fetchPaid(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body });
+const res = await fetchPaid(url, { method: 'POST', headers: {'Content-Type':'application/json', 'Accept': accept}, body });
+console.log(`content-type: ${res.headers.get('content-type')}`);
 console.log(`paid response status=${res.status}`);
 const bodyText = await res.text();
 try {
