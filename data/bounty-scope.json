@@ -594,7 +594,7 @@
       "project": "reserve-protocol",
       "display_name": "Reserve Protocol Bug Bounty",
       "url": "https://cantina.xyz/bounties",
-      "max_payout_usd": 15500000,
+      "max_payout_usd": 66000000,
       "asset_type": "smart_contract",
       "chains": [
         "ethereum",
@@ -844,6 +844,6 @@
       "reason": "dYdX v4 is a Cosmos SDK application-specific blockchain, not EVM-based; the Cantina bounty page (https://cantina.xyz/bounties/83b38645-7554-43c3-88d4-cac2910650b7) explicitly states no contract addresses are provided, and dYdX Chain addresses are not 0x-EVM format."
     }
   ],
-  "last_refreshed_at": "2026-08-18T04:06:11.975Z",
+  "last_refreshed_at": "2026-08-22T04:04:04.383Z",
   "last_refreshed_by": "scripts/refresh-scope.mjs"
 }
