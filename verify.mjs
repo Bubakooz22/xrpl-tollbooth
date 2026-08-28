@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { requestDigest } from './src/digest.mjs';
+import { requestDigest, preAuthRequestDigest } from './src/digest.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, 'test-vectors', 'v0.9');
@@ -137,10 +137,97 @@ function runCanonicalizationSuite() {
   }
 }
 
+// ---------- Excluded-fields suite ----------
+//
+// This suite verifies the v0.9 volatile-field allowlist. Positive fixtures
+// contain two envelopes that differ ONLY in one or more volatile fields;
+// their `preAuthRequestDigest` (which strips volatile fields before hashing)
+// MUST be identical. Negative fixtures differ in a non-volatile field; the
+// digests MUST differ.
+//
+// Implementations replacing this runner should call THEIR own equivalent of
+// preAuthRequestDigest — a function that strips the V09_VOLATILE_FIELDS set
+// (see digest.mjs) before canonicalizing and hashing.
+
+function runExcludedFieldsSuite() {
+  const suiteRoot = join(ROOT, 'excluded-fields');
+  let fixtures;
+  try {
+    fixtures = listDirs(suiteRoot);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      console.log(color(`\n[excluded-fields] suite not present, skipping`, DIM));
+      return;
+    }
+    throw err;
+  }
+  console.log(color(`\n[excluded-fields] ${fixtures.length} fixtures`, BOLD));
+
+  for (const name of fixtures) {
+    const dir = join(suiteRoot, name);
+    const inputs = listFiles(dir, /^input-[a-z]\.json$/);
+    const negativeMode = readdirSync(dir).some(f => f.startsWith('expected-digest-'));
+
+    try {
+      if (negativeMode) {
+        // Each input has its own expected digest; they MUST differ.
+        const results = inputs.map(input => {
+          const label = input.replace(/\.json$/, '').replace('input-', '');
+          const expected = readText(join(dir, `expected-digest-${label}.txt`));
+          const parsed = readJson(join(dir, input));
+          const actual = preAuthRequestDigest(parsed);
+          return { input, expected, actual, match: actual === expected };
+        });
+        const digests = new Set(results.map(r => r.actual));
+        const allDistinct = digests.size === results.length;
+        const allMatchExpected = results.every(r => r.match);
+
+        if (allDistinct && allMatchExpected) {
+          totalPassed++;
+          console.log(`  ${color('ok  ', GREEN)} ${name} ${color('(negative — digests differ as required)', DIM)}`);
+          if (VERBOSE) results.forEach(r => console.log(`      ${r.input} → ${r.actual.slice(0, 16)}…`));
+        } else {
+          totalFailed++;
+          const reason = !allDistinct
+            ? 'inputs produced IDENTICAL digests (volatile-field allowlist stripped a semantic field)'
+            : 'digest(s) did not match expected';
+          failures.push({ suite: 'excluded-fields', fixture: name, reason, results });
+          console.log(`  ${color('FAIL', RED)} ${name}: ${reason}`);
+          results.forEach(r => console.log(`      ${r.input} → ${r.actual}${r.match ? '' : color(' ← MISMATCH', RED)}`));
+        }
+      } else {
+        // All inputs share a single expected digest after volatile stripping.
+        const expected = readText(join(dir, 'expected-digest.txt'));
+        const results = inputs.map(input => {
+          const parsed = readJson(join(dir, input));
+          const actual = preAuthRequestDigest(parsed);
+          return { input, actual, match: actual === expected };
+        });
+        const allMatch = results.every(r => r.match);
+        if (allMatch) {
+          totalPassed++;
+          console.log(`  ${color('ok  ', GREEN)} ${name} ${color(`(${results.length} inputs → ${expected.slice(0, 16)}…)`, DIM)}`);
+          if (VERBOSE) results.forEach(r => console.log(`      ${r.input} → ${r.actual.slice(0, 16)}…`));
+        } else {
+          totalFailed++;
+          failures.push({ suite: 'excluded-fields', fixture: name, reason: 'digest divergence after volatile stripping', results, expected });
+          console.log(`  ${color('FAIL', RED)} ${name}: expected ${expected}`);
+          results.forEach(r => console.log(`      ${r.input} → ${r.actual}${r.match ? '' : color(' ← MISMATCH', RED)}`));
+        }
+      }
+    } catch (err) {
+      totalFailed++;
+      failures.push({ suite: 'excluded-fields', fixture: name, reason: err.message });
+      console.log(`  ${color('FAIL', RED)} ${name}: ${err.message}`);
+    }
+  }
+}
+
 // ---------- Suite registry ----------
 
 const SUITES = {
   canonicalization: runCanonicalizationSuite,
+  'excluded-fields': runExcludedFieldsSuite,
 };
 
 // ---------- Main ----------

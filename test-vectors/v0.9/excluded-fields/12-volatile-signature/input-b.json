@@ -1,0 +1,18 @@
+{
+  "version": "0.9",
+  "envelope_type": "PreAuth",
+  "buyer": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+  "payee": "rTollBooTHxrpAgent1500PayeeXXXXXXXX",
+  "chain": "xrpl:0",
+  "endpoint": "/wallet-risk",
+  "max_spend_xrp": "0.05",
+  "valid_until": "2026-09-01T00:00:00Z",
+  "budget_period_seconds": 3600,
+  "allowed_endpoints": [
+    "/wallet-risk",
+    "/contract-risk",
+    "/tx-simulate-risk"
+  ],
+  "__sig": "ed25519:9988776655443322110099aabbccddeeff99887766554433221100aabbccddeeff",
+  "__timestamp": "2026-08-28T11:36:00Z"
+}
