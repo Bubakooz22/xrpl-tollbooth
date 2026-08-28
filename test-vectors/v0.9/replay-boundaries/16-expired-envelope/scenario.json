@@ -1,0 +1,41 @@
+{
+  "initial_state": {
+    "consumed_nonces": [],
+    "budget_period_start": "2026-08-28T11:00:00Z",
+    "budget_consumed_xrp": "0",
+    "settlements": []
+  },
+  "envelope": {
+    "version": "0.9",
+    "envelope_type": "PreAuth",
+    "buyer": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+    "payee": "rTollBooTHxrpAgent1500PayeeXXXXXXXX",
+    "chain": "xrpl:0",
+    "endpoint": "/wallet-risk",
+    "max_spend_xrp": "0.05",
+    "valid_until": "2026-08-27T00:00:00Z",
+    "budget_period_seconds": 3600,
+    "allowed_endpoints": [
+      "/wallet-risk",
+      "/contract-risk",
+      "/tx-simulate-risk"
+    ],
+    "nonce_client": "01H9ZT3M4G5A7B8C9D0E1F2G3H",
+    "timestamp_ms": 1756345200000,
+    "__sig": "ed25519:0011223344556677889900aabbccddeeff00112233445566778899aabbccddeeff",
+    "__timestamp": "2026-08-27T00:00:00Z"
+  },
+  "attempt": {
+    "endpoint": "/wallet-risk",
+    "charge_xrp": "0.01",
+    "submitted_at": "2026-08-28T11:35:01Z"
+  },
+  "expected_outcome": "reject",
+  "expected_reason_code": "ENVELOPE_EXPIRED",
+  "expected_terminal_state": {
+    "nonce_status": "fresh",
+    "budget_consumed_delta": "0",
+    "settlement_ref": null,
+    "ledger_updated": false
+  }
+}
