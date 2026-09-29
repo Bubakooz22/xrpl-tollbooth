@@ -3,8 +3,8 @@
   "info": {
     "title": "XRPL Toll Booth \u2014 Cybersecurity API",
     "summary": "Pay-per-call cybersecurity endpoints for Web3 agents and auditors, settled on the XRP Ledger via x402.",
-    "description": "The first cybersecurity toll booth on XRPL. Two auth models coexist:\n\n1. **x402 pay-per-call** on `/wallet-risk`, `/contract-risk`, `/tx-simulate-risk`, `/scope-check`. Each call costs a small amount (5000 drops XRP or 0.002 RLUSD) settled on-chain via the x402 facilitator before the endpoint executes.\n2. **API-key Bearer auth** on `/verify-poc` and `/auth-ping`. In closed beta; contact the maintainer for a key.\n\nAll endpoints return a stable `reason_codes[]` array so downstream agents can grade findings without parsing prose.",
-    "version": "0.6.1",
+    "description": "Five POST routes use x402 on XRPL mainnet: /wallet-risk, /contract-risk, /tx-simulate-risk, /scope-check and /verify-poc. /auth-ping retains Bearer API-key access; administration retains master-key access. Offers observed September 29, 2026 were 5000 drops XRP or 0.002 RLUSD, excluding applicable network fees; a fresh endpoint challenge is authoritative. Payment occurs before request-body validation, so invalid input can be charged. No automatic refund, free retry, cached replay, latency SLA or universal safety guarantee is promised. Successful wallet, contract, simulation and PoC responses support opt-in v0.8 when signing is enabled; scope and errors remain legacy JSON. This is a documentation revision, not a new envelope protocol or proof of all paid capabilities.",
+    "version": "2026.09.29",
     "contact": {
       "name": "transactionguardian2025",
       "url": "https://github.com/Bubakooz22/xrpl-tollbooth/issues"
@@ -16,15 +16,15 @@
   },
   "servers": [
     {
-      "url": "http://45.55.48.101:8787",
-      "description": "Droplet 45 \u2014 staging tollbooth on XRPL mainnet"
+      "url": "https://api.txnguardian.com",
+      "description": "Production HTTPS API; payments on XRPL mainnet"
     }
   ],
   "tags": [
     { "name": "discovery",   "description": "Unauthenticated metadata endpoints." },
     { "name": "risk",        "description": "x402-paid: wallet, contract, and transaction risk scoring." },
     { "name": "scope",       "description": "x402-paid: bug bounty scope lookup." },
-    { "name": "verify",      "description": "API-key: Foundry PoC verification (closed beta)." },
+    { "name": "verify",      "description": "x402-paid: Foundry PoC verification; workload admission requires separate review." },
     { "name": "admin",       "description": "Master-key: API key CRUD." }
   ],
   "components": {
@@ -81,11 +81,20 @@
               "properties": {
                 "scheme":      { "type": "string", "example": "exact" },
                 "network":     { "type": "string", "example": "xrpl:0" },
-                "asset":       { "type": "string", "description": "'native' for XRP, or 40-hex currency code for IOU." },
-                "issuer":      { "type": "string", "description": "IOU issuer address (present for RLUSD accepts entry only)." },
+                "asset":       { "type": "string", "description": "'XRP' for native XRP, or 40-hex currency code for IOU." },
                 "amount":      { "type": "string", "description": "Amount in drops for XRP, or decimal string for IOU." },
                 "payTo":       { "type": "string", "example": "rK1C1DPzJo9gSjK2LSdhV5J5veFB84zHer" },
-                "invoiceId":   { "type": "string", "format": "uuid" },
+                "resource":    { "type": "object", "properties": { "url": { "type": "string", "format": "uri" } } },
+                "facilitatorUrl": { "type": "string", "format": "uri" },
+                "extra": {
+                  "type": "object",
+                  "properties": {
+                    "invoiceId": { "type": "string", "format": "uuid" },
+                    "issuer": { "type": "string", "description": "RLUSD issuer for IOU offers." },
+                    "sourceTag": { "type": "integer" },
+                    "areFeesSponsored": { "type": "boolean" }
+                  }
+                },
                 "maxTimeoutSeconds": { "type": "integer", "example": 300 },
                 "x402Version": { "type": "integer", "example": 2 }
               }
@@ -97,11 +106,57 @@
         "type": "string",
         "description": "Stable machine-readable code. See per-endpoint docs for the full list."
       },
+      "RiskReason": {
+        "type": "object",
+        "required": ["code", "severity"],
+        "properties": {
+          "code": { "type": "string" },
+          "severity": { "type": "string" },
+          "source": { "type": "string" },
+          "evidence": {},
+          "override_permitted": { "type": "boolean" }
+        }
+      },
+      "SignedResponseV08": {
+        "type": "object",
+        "required": ["envelope", "signature"],
+        "description": "Risk report and request binding, not raw handler output or a signed payment receipt. HTTP 200 only; scope is not wrapped. No replay-cache guarantee.",
+        "properties": {
+          "envelope": {
+            "type": "object",
+            "required": ["version", "endpoint", "request_hash", "risk_level", "reason_codes", "human", "fulfillment_status", "retry_permitted", "retry_after_seconds", "issued_at", "expires_at", "signing_key_id", "envelope_hash"],
+            "properties": {
+              "version": { "const": "0.8" },
+              "endpoint": { "type": "string", "enum": ["/wallet-risk", "/contract-risk", "/tx-simulate-risk", "/verify-poc"] },
+              "request_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of canonical parsed request JSON." },
+              "risk_level": { "type": "string" },
+              "reason_codes": { "type": "array", "items": { "allOf": [{ "$ref": "#/components/schemas/RiskReason" }, { "required": ["override_permitted"] }] } },
+              "human": { "type": "string" },
+              "fulfillment_status": { "const": "complete" },
+              "retry_permitted": { "const": false },
+              "retry_after_seconds": { "type": "null" },
+              "issued_at": { "type": "string", "format": "date-time" },
+              "expires_at": { "type": "string", "format": "date-time" },
+              "signing_key_id": { "type": "string" },
+              "envelope_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of canonical envelope excluding envelope_hash and signature." }
+            }
+          },
+          "signature": {
+            "type": "object",
+            "required": ["alg", "key_id", "value"],
+            "properties": {
+              "alg": { "const": "Ed25519" },
+              "key_id": { "type": "string" },
+              "value": { "type": "string", "contentEncoding": "base64", "description": "Ed25519 signature over canonical envelope including envelope_hash." }
+            }
+          }
+        }
+      },
       "WalletRiskRequest": {
         "type": "object",
-        "required": ["chain", "address"],
+        "required": ["address"],
         "properties": {
-          "chain":   { "type": "string", "enum": ["eth", "xrpl", "sol"] },
+          "chain":   { "type": "string", "enum": ["eth", "base", "xrpl", "sol"] },
           "address": { "type": "string", "description": "Chain-native address." }
         }
       },
@@ -110,19 +165,18 @@
         "properties": {
           "chain":         { "type": "string" },
           "address":       { "type": "string" },
-          "risk_score":    { "type": "integer", "minimum": 0, "maximum": 100 },
+          "score":         { "type": "integer", "minimum": 0, "maximum": 100 },
           "risk_level":    { "type": "string", "enum": ["low", "medium", "high", "critical"] },
-          "reason_codes":  { "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
+          "reason_codes":  { "type": "array", "items": { "$ref": "#/components/schemas/RiskReason" } },
           "sources_checked": { "type": "array", "items": { "type": "string" } },
-          "cached":        { "type": "boolean" },
           "cache_ttl_seconds": { "type": "integer" }
         }
       },
       "ContractRiskRequest": {
         "type": "object",
-        "required": ["chain", "address"],
+        "required": ["address"],
         "properties": {
-          "chain":   { "type": "string", "enum": ["eth"] },
+          "chain":   { "type": "string", "enum": ["eth", "base"], "default": "eth" },
           "address": { "type": "string", "description": "20-byte hex address." }
         }
       },
@@ -131,28 +185,22 @@
         "properties": {
           "chain":        { "type": "string" },
           "address":      { "type": "string" },
-          "risk_score":   { "type": "integer" },
+          "score":        { "type": "integer" },
           "risk_level":   { "type": "string" },
-          "reason_codes": { "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
-          "known_exploit_match": {
-            "type": "object",
-            "description": "Populated if the address matches a curated exploit database entry.",
-            "properties": {
-              "name": { "type": "string" },
-              "url":  { "type": "string" }
-            }
-          }
+          "reason_codes": { "type": "array", "items": { "$ref": "#/components/schemas/RiskReason" } },
+          "metadata": { "type": "object" }
         }
       },
       "TxSimulateRiskRequest": {
         "type": "object",
-        "required": ["chain", "from", "to"],
+        "required": ["from"],
+        "description": "Use a 0x-prefixed sender. chain defaults to eth. Omitted/null/empty to denotes contract creation and requires nonempty data; this source-supported category was not covered by the September 29 paid proof. The public handler does not forward a block override. Send value as an exact non-negative decimal or hexadecimal string, not a floating-point number.",
         "properties": {
-          "chain": { "type": "string", "enum": ["eth"] },
+          "chain": { "type": "string", "enum": ["eth", "ethereum", "mainnet"], "default": "eth" },
           "from":  { "type": "string", "description": "Sender address. Impersonated in the anvil fork." },
-          "to":    { "type": "string" },
-          "data":  { "type": "string", "description": "Calldata hex, with or without 0x." },
-          "value": { "type": "string", "description": "Wei as decimal string. Defaults to 0." }
+          "to":    { "type": ["string", "null"], "description": "0x-prefixed target; omitted/null/empty for creation with nonempty data." },
+          "data":  { "type": ["string", "null"], "description": "Nonempty calldata must be 0x-prefixed hex. Omitted/null/empty defaults to 0x." },
+          "value": { "type": ["string", "number", "null"], "description": "Prefer exact non-negative integer wei as decimal or 0x-prefixed hex string. Omitted/null/empty defaults to 0. Numeric input is accepted and truncated by the implementation; avoid precision loss." }
         }
       },
       "TxSimulateRiskResponse": {
@@ -160,22 +208,58 @@
         "properties": {
           "chain":       { "type": "string" },
           "from":        { "type": "string" },
-          "to":          { "type": "string" },
+          "to":          { "type": ["string", "null"] },
+          "normalized_from": { "type": "string" },
+          "normalized_to": { "type": ["string", "null"] },
+          "value_wei": { "type": "string" },
+          "success": { "type": "boolean" },
           "reverted":    { "type": "boolean" },
-          "gas_used":    { "type": "integer" },
-          "risk_score":  { "type": "integer" },
+          "gas_used":    { "type": ["integer", "null"] },
+          "score":       { "type": "integer" },
           "risk_level":  { "type": "string" },
-          "reason_codes":{ "type": "array", "items": { "$ref": "#/components/schemas/ReasonCode" } },
-          "trace_head":  { "type": "string", "description": "First ~1500 chars of cast run --quick output." },
-          "block_number":{ "type": "integer" },
-          "duration_ms": { "type": "integer" }
+          "reason_codes":{ "type": "array", "items": { "$ref": "#/components/schemas/RiskReason" } },
+          "state_changes": {
+            "type": "object",
+            "properties": {
+              "eth_balance_deltas": { "type": "object", "additionalProperties": { "type": "string" } },
+              "token_transfers": { "type": "array", "items": { "type": "object" } },
+              "approvals_granted": { "type": "array", "items": { "type": "object" } },
+              "ownership_changes": { "type": "array", "items": { "type": "object" } },
+              "upgrades": { "type": "array", "items": { "type": "object" } }
+            }
+          },
+          "traces_summary": {
+            "type": "object",
+            "properties": {
+              "traces_text_head": { "type": "string", "description": "Up to 1500 characters. Empty for reverted execution." },
+              "internal_calls_count": { "type": "integer" },
+              "delegatecalls_count": { "type": "integer" },
+              "staticcalls_count": { "type": "integer" },
+              "has_selfdestruct": { "type": "boolean" },
+              "has_create": { "type": "boolean" }
+            }
+          },
+          "fork_block": { "type": "integer" },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "tx_hash_on_fork": { "type": "string" },
+              "upstream_rpc": { "type": "string" },
+              "simulation_duration_ms": { "type": "integer" }
+            }
+          },
+          "checked_at": { "type": "string", "format": "date-time" },
+          "sources_checked": { "type": "array", "items": { "type": "string" } },
+          "cache_ttl_seconds": { "type": "integer", "const": 0 },
+          "notes": { "type": "array", "items": { "type": "string" } }
         }
       },
       "ScopeCheckRequest": {
         "type": "object",
-        "required": ["address"],
+        "anyOf": [{ "required": ["address"] }, { "required": ["addresses"] }],
         "properties": {
           "address": { "type": "string" },
+          "addresses": { "type": "array", "items": { "type": "string" }, "description": "Batch lookup; takes precedence when supplied as an array." },
           "chain":   { "type": "string" }
         }
       },
@@ -190,13 +274,17 @@
               "type": "object",
               "properties": {
                 "platform":  { "type": "string", "example": "immunefi" },
-                "name":      { "type": "string" },
+                "project":   { "type": "string" },
                 "url":       { "type": "string" },
-                "max_bounty":{ "type": "string" }
+                "max_payout_usd":{ "type": "number" }
               }
             }
           },
-          "generated_at": { "type": "string", "format": "date-time" }
+          "data_freshness": { "type": "object" },
+          "count": { "type": "integer", "description": "Batch response only." },
+          "any_in_scope": { "type": "boolean", "description": "Batch response only." },
+          "total_top_payout_usd": { "type": "number", "description": "Batch response only; not an earnings prediction." },
+          "results": { "type": "array", "items": { "type": "object" }, "description": "Batch per-address results, including individual errors." }
         }
       },
       "VerifyPocRequest": {
@@ -254,7 +342,34 @@
         }
       }
     },
+    "headers": {
+      "PaymentReceipt": {
+        "schema": { "type": "string" },
+        "description": "Base64-encoded settlement receipt when available. Separate from, and not authenticated by, the v0.8 report signature. Not guaranteed on every infrastructure failure."
+      },
+      "EnvelopeWarning": {
+        "schema": { "type": "string", "enum": ["envelope_wrap_failed"] },
+        "description": "Signing failed and legacy JSON was returned; reject if a signed report is required."
+      }
+    },
+    "parameters": {
+      "EnvelopeAccept": {
+        "name": "Accept", "in": "header", "required": false,
+        "schema": { "type": "string", "example": "application/vnd.tollbooth.v0.8+json" },
+        "description": "Opt in to v0.8 on eligible HTTP 200 responses with signing enabled. Default is legacy JSON; inspect actual Content-Type and verify the signature. Scope and errors are not wrapped."
+      }
+    },
     "responses": {
+      "PaidInputError": {
+        "description": "Invalid input after payment gating. Receipt included if available; no refund or free retry implied.",
+        "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "PaidInternalError": {
+        "description": "Internal failure. Receipt may be present if the handler retained one; no signed envelope or universal receipt guarantee.",
+        "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } },
+        "content": { "application/json": { "schema": { "type": "object" } } }
+      },
       "PaymentRequired": {
         "description": "402 \u2014 payment required. Body describes accepted assets.",
         "headers": {
@@ -284,6 +399,32 @@
     }
   },
   "paths": {
+    "/.well-known/tollbooth-keys.json": {
+      "get": {
+        "tags": ["discovery"],
+        "summary": "Public verification keys for signed v0.8 reports.",
+        "description": "Read-only manifest when signing is enabled. Public Ed25519 keys are raw 32-byte base64 values. Resolve the report's signing_key_id, enforce key status and validity policy, then verify hash, signature, request binding and freshness.",
+        "responses": {
+          "200": {
+            "description": "Public signing-key manifest.",
+            "content": { "application/json": { "schema": {
+              "type": "object",
+              "properties": { "keys": { "type": "array", "items": {
+                "type": "object",
+                "properties": {
+                  "key_id": { "type": "string" },
+                  "alg": { "const": "Ed25519" },
+                  "public_key": { "type": "string", "contentEncoding": "base64" },
+                  "status": { "type": "string" }
+                }
+              } } }
+            } } }
+          },
+          "304": { "description": "Unchanged according to If-None-Match." },
+          "503": { "description": "Signing-key discovery unavailable when disabled (v08_not_enabled)." }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": ["discovery"],
@@ -318,8 +459,8 @@
     "/.well-known/x402": {
       "get": {
         "tags": ["discovery"],
-        "summary": "Sample x402 accepts \u2014 legacy discovery.",
-        "description": "Returns a sample `accepts[]` at current TOLL_PRICE_DROPS. Kept for backward compatibility; new integrations should read `/.well-known/agent.json` or `/.well-known/openapi.json`.",
+        "summary": "Sample current x402 offers.",
+        "description": "Read-only discovery, not a reusable payment authorization. Obtain a fresh 402 challenge from the actual endpoint before signing.",
         "responses": {
           "200": { "description": "OK", "content": { "application/json": {} } }
         }
@@ -329,7 +470,8 @@
       "post": {
         "tags": ["risk"],
         "summary": "Score a wallet address for known risk signals.",
-        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Checks OFAC (100 ETH + 1 XRPL + 4 SOL entries) and a curated scam-address list (652 ETH entries). Cached: no.",
+        "parameters": [{ "$ref": "#/components/parameters/EnvelopeAccept" }],
+        "description": "Wallet risk signals from configured datasets and chain checks. Coverage depends on available sources; no exact coverage or refresh guarantee. Current challenge controls payment terms.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -338,8 +480,11 @@
         "responses": {
           "200": {
             "description": "Risk assessment.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletRiskResponse" } } }
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" }, "X-Tollbooth-V08-Warning": { "$ref": "#/components/headers/EnvelopeWarning" } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletRiskResponse" } }, "application/vnd.tollbooth.v0.8+json": { "schema": { "$ref": "#/components/schemas/SignedResponseV08" } } }
           },
+          "400": { "$ref": "#/components/responses/PaidInputError" },
+          "500": { "$ref": "#/components/responses/PaidInternalError" },
           "402": { "$ref": "#/components/responses/PaymentRequired" }
         }
       }
@@ -348,7 +493,8 @@
       "post": {
         "tags": ["risk"],
         "summary": "Score a smart-contract address for known-exploit and heuristic risk.",
-        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Matches against a curated exploit database (5 entries at time of writing) plus source-code heuristics when Etherscan key is configured.",
+        "parameters": [{ "$ref": "#/components/parameters/EnvelopeAccept" }],
+        "description": "Matches a curated exploit dataset plus available contract heuristics. Source checks depend on provider configuration. No exact dataset-count or completeness guarantee; current challenge controls payment terms.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -357,8 +503,11 @@
         "responses": {
           "200": {
             "description": "Risk assessment.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContractRiskResponse" } } }
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" }, "X-Tollbooth-V08-Warning": { "$ref": "#/components/headers/EnvelopeWarning" } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContractRiskResponse" } }, "application/vnd.tollbooth.v0.8+json": { "schema": { "$ref": "#/components/schemas/SignedResponseV08" } } }
           },
+          "400": { "$ref": "#/components/responses/PaidInputError" },
+          "500": { "$ref": "#/components/responses/PaidInternalError" },
           "402": { "$ref": "#/components/responses/PaymentRequired" }
         }
       }
@@ -367,6 +516,7 @@
       "post": {
         "tags": ["risk"],
         "summary": "Simulate an Ethereum transaction on a mainnet fork and grade the outcome.",
+        "parameters": [{ "$ref": "#/components/parameters/EnvelopeAccept" }],
         "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Spins up an ephemeral anvil fork, impersonates `from`, sets balance, executes, mines a block, parses receipt logs and traces. Detects unlimited approvals, ownership transfer, proxy upgrade, selfdestruct, reverts, and multi-token outbound flows.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
@@ -375,9 +525,17 @@
         },
         "responses": {
           "200": {
-            "description": "Simulation result.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TxSimulateRiskResponse" } } }
+            "description": "Simulation completed, including reverted transactions. A low risk label is not proof of success. Legacy JSON contains execution details; signed v0.8 contains the risk report only.",
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" }, "X-Tollbooth-V08-Warning": { "$ref": "#/components/headers/EnvelopeWarning" } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TxSimulateRiskResponse" } }, "application/vnd.tollbooth.v0.8+json": { "schema": { "$ref": "#/components/schemas/SignedResponseV08" } } }
           },
+          "400": { "$ref": "#/components/responses/PaidInputError" },
+          "502": {
+            "description": "Simulation infrastructure failure: upstream, fork startup, receipt or trace unavailable. Not a completed low-risk result.",
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "500": { "$ref": "#/components/responses/PaidInternalError" },
           "402": { "$ref": "#/components/responses/PaymentRequired" }
         }
       }
@@ -386,7 +544,7 @@
       "post": {
         "tags": ["scope"],
         "summary": "Look up whether an address is in scope of any known bug bounty program.",
-        "description": "Costs 5000 drops XRP or 0.002 RLUSD per call. Refreshed daily by systemd; source-of-truth JSON committed to the repo. Currently 15 programs across 109 contracts.",
+        "description": "Local dataset lookup, not authoritative permission to test. No exact coverage or daily-refresh guarantee. Single-address or batch JSON responses; not signed v0.8. Current challenge controls payment terms.",
         "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
@@ -395,9 +553,12 @@
         "responses": {
           "200": {
             "description": "Scope match result.",
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } },
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScopeCheckResponse" } } }
           },
-          "402": { "$ref": "#/components/responses/PaymentRequired" }
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/PaidInputError" },
+          "500": { "$ref": "#/components/responses/PaidInternalError" }
         }
       }
     },
@@ -405,8 +566,9 @@
       "post": {
         "tags": ["verify"],
         "summary": "Grade a Foundry PoC against an Ethereum mainnet fork.",
-        "description": "Closed beta \u2014 API key required. Rate limit: 10/min per key on a dedicated bucket. Runs `forge test --fork-url --json` in an ephemeral `/tmp/verify-poc-<uuid>/` sandbox with `ffi=false` pinned. Single-file only; multi-file support arrives in Phase 6.2.",
-        "security": [{ "BearerApiKey": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/EnvelopeAccept" }],
+        "description": "x402-paid Foundry PoC grading. No API-key per-route limiter is applied by this handler; workload admission requires separate review before broad promotion. No latency SLA or multi-file roadmap promise. Payment precedes input validation.",
+        "security": [{ "X402XRPL": [] }],
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocRequest" } } }
@@ -414,14 +576,15 @@
         "responses": {
           "200": {
             "description": "Grading complete (`verified` true or false).",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } }
+            "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" }, "X-Tollbooth-V08-Warning": { "$ref": "#/components/headers/EnvelopeWarning" } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } }, "application/vnd.tollbooth.v0.8+json": { "schema": { "$ref": "#/components/schemas/SignedResponseV08" } } }
           },
-          "400": { "description": "Bad input (missing/oversize/base64/policy).",   "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "422": { "description": "Compile / parse / no-tests failure.",           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "502": { "description": "Upstream RPC unreachable.",                     "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
-          "504": { "description": "Forge subprocess exceeded 120s wall clock.",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } }
+          "400": { "description": "Malformed JSON or invalid PoC input.", "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } }, "content": { "application/json": { "schema": { "anyOf": [{ "$ref": "#/components/schemas/ErrorResponse" }, { "$ref": "#/components/schemas/VerifyPocResponse" }] } } } },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "422": { "description": "Compile / parse / no-tests failure.", "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "502": { "description": "Upstream RPC unreachable.", "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "504": { "description": "PoC execution timed out.", "headers": { "PAYMENT-RESPONSE": { "$ref": "#/components/headers/PaymentReceipt" } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyPocResponse" } } } },
+          "500": { "$ref": "#/components/responses/PaidInternalError" }
         }
       }
     },

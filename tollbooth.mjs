@@ -20,10 +20,8 @@ import {
   V08_CONTENT_TYPE,
 } from './lib/envelope-wrapper.mjs';
 
-// Phase 6.1 — per-route rate limit override.
-// /verify-poc spawns a forge subprocess + RPC fetch, so we cap tighter
-// than the global 60/min to protect the single-vCPU droplet.
-const VERIFY_POC_CAP_PER_MINUTE = Number(process.env.VERIFY_POC_CAP_PER_MINUTE || 10);
+// /verify-poc uses x402, not the API-key limiter below.
+// Paid-route workload admission remains a separate reviewed change.
 
 // Phase 7.1 — static discovery documents (OpenAPI 3.1 + agent manifest).
 // Loaded once at boot. ETag = sha256 of the raw bytes. Served with a short
@@ -527,7 +525,9 @@ async function handleWalletRisk(req, res) {
   const chainOverride = typeof body.chain === 'string' ? body.chain.toLowerCase() : undefined;
 
   if (!addr) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+    res.writeHead(400, headers);
     res.end(JSON.stringify({ error: "missing_address", message: 'provide {"address":"..."} in request body' }));
     log({ method: req.method, path: req.url, status: 400, payment_status: "settled" });
     return;
@@ -561,7 +561,7 @@ async function handleWalletRisk(req, res) {
   });
 
   const headers = { "Content-Type": wrap.contentType };
-  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(wrap.body));
   log({
@@ -589,7 +589,9 @@ async function handleContractRisk(req, res) {
   const chain = typeof body.chain === 'string' ? body.chain.toLowerCase() : 'eth';
 
   if (!addr) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+    res.writeHead(400, headers);
     res.end(JSON.stringify({ error: "missing_address", message: 'provide {"address":"...","chain":"eth|base"} in request body' }));
     log({ method: req.method, path: req.url, status: 400, payment_status: "settled" });
     return;
@@ -622,7 +624,7 @@ async function handleContractRisk(req, res) {
   });
 
   const headers = { "Content-Type": wrap.contentType };
-  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(wrap.body));
   log({
@@ -653,7 +655,9 @@ async function handleTxSimulateRisk(req, res) {
   const value = body.value;
 
   if (!from) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+    res.writeHead(400, headers);
     res.end(JSON.stringify({
       error: "missing_from",
       message: 'provide {"chain":"eth","from":"0x...","to":"0x...","data":"0x...","value":"0"} in request body'
@@ -667,7 +671,11 @@ async function handleTxSimulateRisk(req, res) {
   try {
     const result = await simulateTransaction({ chain, from, to, data, value });
     if (result && result.error) {
-      statusCode = 400;
+      const inputErrors = new Set([
+        "unsupported_chain", "invalid_from", "invalid_to",
+        "invalid_input", "invalid_data", "invalid_value",
+      ]);
+      statusCode = inputErrors.has(result.error) ? 400 : 502;
       responseBody = result;
     } else {
       statusCode = 200;
@@ -689,7 +697,7 @@ async function handleTxSimulateRisk(req, res) {
   });
 
   const headers = { "Content-Type": wrap.contentType };
-  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(wrap.body));
   log({
@@ -718,7 +726,9 @@ async function handleScopeCheck(req, res) {
   const addrs = body.addresses;
 
   if (!addr && !Array.isArray(addrs)) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+    res.writeHead(400, headers);
     res.end(JSON.stringify({
       error: "missing_address",
       message: 'provide {"address":"0x...","chain":"eth|base|arb|opt|polygon|..."} or {"addresses":[...]} in request body'
@@ -747,7 +757,7 @@ async function handleScopeCheck(req, res) {
   }
 
   const headers = { "Content-Type": "application/json" };
-  if (statusCode === 200) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(responseBody));
   log({ method: req.method, path: req.url, status: statusCode, payment_status: "settled" });
@@ -935,28 +945,29 @@ async function handleAdminRevokeKey(req, res, idStr) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 6.1 — /verify-poc (API-key gated, per-route rate limit)
+// /verify-poc (x402-gated; no API-key per-route limit)
 // ---------------------------------------------------------------------------
 
 async function handleVerifyPoc(req, res) {
-  const auth = await requireApiKey(req, res, {
-    cap: VERIFY_POC_CAP_PER_MINUTE,
-    bucket: "verify-poc",
-  });
-  if (!auth.ok) return;
+  const ok = await requirePayment(req, res);
+  if (!ok) return; // response already sent by requirePayment
+
+  const receipt = res.paymentReceipt;
 
   let body;
   try {
     body = await readJsonBody(req);
   } catch (err) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+    res.writeHead(400, headers);
     res.end(JSON.stringify({ error: "invalid_json_body", code: 400 }));
     log({
       method: req.method,
       path: req.url,
       status: 400,
-      payment_status: "authenticated",
-      extra: `key=${auth.key.prefix} invalid_json`,
+      payment_status: "settled",
+      extra: "invalid_json",
     });
     return;
   }
@@ -1009,14 +1020,16 @@ async function handleVerifyPoc(req, res) {
     signingKeys: SIGNING_KEYS,
   });
 
-  res.writeHead(status, { "Content-Type": wrap.contentType });
+  const headers = { "Content-Type": wrap.contentType };
+  if (receipt) headers["PAYMENT-RESPONSE"] = b64encode(receipt);
+  res.writeHead(status, headers);
   res.end(JSON.stringify(wrap.body));
   log({
     method: req.method,
     path: req.url,
     status,
-    payment_status: "authenticated",
-    extra: `key=${auth.key.prefix} verified=${result.verified} codes=${result.reason_codes.join(",")} duration=${result.duration_ms}ms${wrap.wrapped ? " v08=wrapped" : ""}`,
+    payment_status: "settled",
+    extra: `verified=${result.verified} codes=${result.reason_codes.join(",")} duration=${result.duration_ms}ms${wrap.wrapped ? " v08=wrapped" : ""}`,
   });
 }
 
@@ -1074,7 +1087,7 @@ async function router(req, res) {
       return await handleAdminRevokeKey(req, res, revokeMatch[1]);
     }
 
-    // Phase 6.1 — /verify-poc (API-key gated, tighter per-route cap)
+    // Phase 6.1 — /verify-poc (x402-gated, v0.8 signed envelope)
     if (req.method === "POST" && path === "/verify-poc") {
       return await handleVerifyPoc(req, res);
     }
