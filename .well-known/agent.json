@@ -3,7 +3,10 @@
   "name": "xrpl-tollbooth",
   "display_name": "XRPL Toll Booth \u2014 Cybersecurity API",
   "description": "Pay-per-call cybersecurity endpoints for Web3 agents and auditors, settled on the XRP Ledger via x402. Wallet risk, contract risk, transaction simulation, bounty-scope lookup, and Foundry PoC verification.",
-  "version": "0.7.0",
+  "version": "2026.09.29",
+  "version_policy": "Documentation revision; response-envelope protocol remains 0.8.",
+  "pricing_observed_at": "2026-09-29",
+  "pricing_policy": "Fresh endpoint challenge is authoritative. Network fees may be additional.",
   "homepage": "https://github.com/Bubakooz22/xrpl-tollbooth",
   "openapi": "/.well-known/openapi.json",
   "contact": {
@@ -23,12 +26,12 @@
   "auth_models": [
     {
       "id": "x402",
-      "description": "Pay per call on XRPL. First request returns 402 with signed payment requirements; sign and retry.",
+      "description": "Pay per call on XRPL mainnet. First request returns 402 with payment requirements over HTTPS, not a signed report. Validate terms and cap spending before signing and retrying. Payment precedes body validation.",
       "docs": "docs/x402-spec-notes.md"
     },
     {
       "id": "bearer_api_key",
-      "description": "Bearer token `tb_live_<32hex>`. Closed beta \u2014 open a GitHub issue to request access.",
+      "description": "Existing Bearer API keys apply to /auth-ping, not the five x402-paid routes.",
       "header": "Authorization",
       "format": "Bearer tb_live_<32hex>",
       "docs": "docs/api-key-auth.md"
@@ -107,11 +110,10 @@
           "currency_hex": "524C555344000000000000000000000000000000"
         }
       ],
-      "latency_ms_p50": 2500,
-      "latency_ms_p95": 5000,
       "input_schema_ref": "/.well-known/openapi.json#/components/schemas/TxSimulateRiskRequest",
       "output_schema_ref": "/.well-known/openapi.json#/components/schemas/TxSimulateRiskResponse",
       "reason_codes": [
+        "TOKEN_APPROVAL_GRANTED",
         "UNLIMITED_APPROVAL_GRANTED",
         "OWNERSHIP_TRANSFERRED",
         "PROXY_UPGRADED",
@@ -140,26 +142,20 @@
       ],
       "input_schema_ref": "/.well-known/openapi.json#/components/schemas/ScopeCheckRequest",
       "output_schema_ref": "/.well-known/openapi.json#/components/schemas/ScopeCheckResponse",
-      "coverage": {
-        "programs": 15,
-        "contracts": 109,
-        "refreshed_daily": true
-      }
+      "coverage_note": "Local dataset lookup; exact coverage and refresh cadence are not guaranteed. Confirm the program's current official scope before acting."
     },
     {
       "id": "verify-poc",
       "method": "POST",
       "path": "/verify-poc",
-      "auth": "bearer_api_key",
+      "auth": "x402",
       "beta": true,
       "summary": "Grade a Foundry PoC (.t.sol) against an Ethereum mainnet fork. Returns verified true/false and a reason code.",
-      "rate_limit": {
-        "per_minute": 10,
-        "bucket": "verify-poc"
-      },
-      "latency_ms_p50": 15000,
-      "latency_ms_p95": 60000,
-      "hard_timeout_ms": 120000,
+      "pricing": [
+        { "asset": "XRP", "amount_drops": 5000 },
+        { "asset": "RLUSD", "amount": "0.002", "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De", "currency_hex": "524C555344000000000000000000000000000000" }
+      ],
+      "operational_note": "No per-key application rate limit is enforced by this x402 handler. Paid-route workload admission is pending separate review; no latency SLA.",
       "input_schema_ref": "/.well-known/openapi.json#/components/schemas/VerifyPocRequest",
       "output_schema_ref": "/.well-known/openapi.json#/components/schemas/VerifyPocResponse",
       "reason_codes": [
@@ -208,7 +204,7 @@
     }
   ],
   "conventions": {
-    "reason_codes": "Every risk/verify endpoint returns a stable `reason_codes[]` array so agents can grade findings without parsing prose.",
+    "reason_codes": "Successful legacy risk results carry reason-code objects; legacy PoC results carry strings. v0.8 normalizes these to objects. Error bodies may not have reason_codes.",
     "risk_levels": [
       "low",
       "medium",
@@ -220,6 +216,20 @@
       "xrpl",
       "sol"
     ],
-    "cache_policy": "No caching on paid endpoints in v0.6.1 (`cache_ttl_seconds: 0`)."
+    "cache_policy": "Do not infer replay, free retry or refund guarantees from cache_ttl_seconds or envelope expiry."
+  },
+  "signed_responses": {
+    "accept": "application/vnd.tollbooth.v0.8+json",
+    "endpoints": ["wallet-risk", "contract-risk", "tx-simulate-risk", "verify-poc"],
+    "status": 200,
+    "schema_ref": "/.well-known/openapi.json#/components/schemas/SignedResponseV08",
+    "keys": "/.well-known/tollbooth-keys.json",
+    "limitations": "Requires signing enabled. Scope and errors are not wrapped. Signing failure may return legacy JSON with X-Tollbooth-V08-Warning. Report signature does not cover the settlement receipt or raw simulation success/revert/gas/trace fields."
+  },
+  "verification": {
+    "observed_at": "2026-09-29",
+    "paid_case": "Operator-funded XRP-mainnet tx-simulate-risk unlimited DAI approval with receipt and signature verified.",
+    "attribution": "INTERNAL_TEST",
+    "limits": "Not proof of external revenue, all five paid capabilities, all transaction categories, or RLUSD end-to-end execution."
   }
 }
